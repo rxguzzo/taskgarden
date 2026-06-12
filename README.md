@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskGarden — Gestão de Tarefas Gamificada
 
-## Getting Started
+O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface gamificada baseada no crescimento de plantas. Cada tarefa criada representa uma semente que cresce de semente a árvore madura de acordo com o progresso registrado, tempo dedicado e foco em sessões Pomodoro.
 
-First, run the development server:
+Esta é a **Fase 1: Fundação Estrutural** do MVP, contendo a modelagem de domínio inicial, estruturas de rotas protegidas responsivas (desktop/mobile), integração do cliente do Supabase de forma isolada, e o componente visual de renderização dinâmica das plantas (`PlantVisual`) usando SVGs inline.
 
+---
+
+## 🚀 Como Executar o Projeto Localmente
+
+### Pré-requisitos
+- Node.js instalado (v18+)
+- Gerenciador de pacotes `npm`
+
+### 1. Clonar ou Acessar a Raiz do Projeto
+Acesse o diretório do projeto no terminal:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd C:\Projetos\taskgarden
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Instalar as Dependências
+Como esta etapa já foi bootstrapeada, você pode restaurar ou verificar as dependências rodando:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Configurar as Variáveis de Ambiente (Supabase Cloud)
+Por padrão, o projeto inicia com **dados demonstrativos mockados** sem necessidade de chaves. Para conectar o seu banco de dados definitivo do Supabase Cloud futuramente:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Crie um arquivo chamado `.env.local` na raiz do projeto (`C:\Projetos\taskgarden\.env.local`).
+2. Copie o conteúdo de `.env.example` e preencha com as suas chaves do projeto Supabase Cloud:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto-id.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-anonima-publica
+   ```
 
-## Learn More
+*Nota: Se o arquivo `.env.local` estiver ausente ou vazio, a aplicação entrará em modo de demonstração local e não tentará realizar conexões com a API.*
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Rodar o Servidor de Desenvolvimento
+Inicie o servidor local:
+```bash
+npm run dev
+```
+Acesse a aplicação no navegador em [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Comandos de Verificação e Qualidade
 
-## Deploy on Vercel
+Antes de enviar alterações para produção, execute os comandos de qualidade do código:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Linting**: Validação de estilo e checagem estática com ESLint:
+  ```bash
+  npm run lint
+  ```
+- **Typecheck**: Verificação estática de tipos do TypeScript:
+  ```bash
+  npx tsc --noEmit
+  ```
+- **Compilação**: Executar o build completo do Next.js de produção para garantir integridade:
+  ```bash
+  npm run build
+  ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 📂 Estrutura de Pastas Implementada
+
+```text
+src/
+├── app/                      # Rotas e Páginas do Next.js App Router
+│   ├── (auth)/               # Grupo de rotas de login/cadastro
+│   │   ├── cadastro/         # Página de cadastro provisória
+│   │   ├── login/            # Página de login provisória
+│   │   └── layout.tsx        # Layout isolado de autenticação
+│   ├── (dashboard)/          # Grupo de rotas do painel
+│   │   ├── focus/            # Tela de cronômetro Pomodoro (provisória)
+│   │   ├── garden/           # Dashboard principal do Jardim Digital
+│   │   ├── greenhouse/       # Estufa de histórico (tarefas arquivadas/podadas)
+│   │   ├── settings/         # Configurações de tema e chaves do Supabase
+│   │   ├── statistics/       # Gráficos de tempo focado e progresso
+│   │   ├── tasks/            # Página para plantar novas tarefas
+│   │   └── layout.tsx        # Layout principal com Sidebar e BottomNav responsivo
+│   ├── globals.css           # Estilização global e animações (Sway do vento)
+│   ├── layout.tsx            # Layout raiz global (Head e body)
+│   └── page.tsx              # Redirecionador inicial (/ -> /garden)
+├── components/               # Componentes React Reutilizáveis
+│   ├── layout/               # Elementos de navegação responsivos
+│   │   ├── BottomNav.tsx     # Menu de navegação mobile
+│   │   └── Sidebar.tsx       # Menu de navegação desktop
+│   ├── plants/               # Componente de representação dinâmica
+│   │   └── PlantVisual.tsx   # SVG inline dinâmico isolado de lógica
+│   └── ui/                   # Wrappers e elementos gráficos base
+│       └── Card.tsx          # Card com efeito Glassmorphism
+├── config/                   # Configurações globais e centrais
+│   └── navigation.ts         # Lista centralizada de rotas de navegação
+├── domain/                   # Camada de Regras e Modelagem de Negócio
+│   └── growth/               # Lógica pura de crescimento e mapeamento de estágios
+│       ├── rules.ts          # Funções puras (Progresso -> Estágio -> Tamanho)
+│       └── types.ts          # Tipos (PlantStage, PlantVisualSize)
+├── mocks/                    # Dados para demonstração visual
+│   └── demo-tasks.ts         # Lista estática de tarefas no Jardim, Estufa e Podas
+└── services/                 # Serviços de Integração Externa
+    └── supabase/             # Clientes Supabase com verificação segura
+        ├── browser.ts        # Cliente do lado do navegador
+        ├── server.ts         # Cliente do lado do servidor
+        └── config.ts         # Validador de variáveis de ambiente
+```
