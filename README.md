@@ -1,8 +1,16 @@
 # TaskGarden — Gestão de Tarefas Gamificada
 
-O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface gamificada baseada no crescimento de plantas. Cada tarefa criada representa uma semente que cresce de semente a árvore madura de acordo com o progresso registrado, tempo dedicado e foco em sessões Pomodoro.
+O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface gamificada baseada no crescimento de plantas.
 
-Esta é a **Fase 1: Fundação Estrutural** do MVP, contendo a modelagem de domínio inicial, estruturas de rotas protegidas responsivas (desktop/mobile), integração do cliente do Supabase de forma isolada, e o componente visual de renderização dinâmica das plantas (`PlantVisual`) usando SVGs inline.
+---
+
+## 🌿 Conceito de Cultivo
+
+Neste projeto, a gamificação é orientada pela seguinte estrutura conceitual:
+- **Uma árvore representa uma área da vida.** (Ex: Igreja, Trabalho, Academia, Estudos, Vida pessoal, Projetos).
+- **As tarefas pertencem a essa área.** Elas são cadastradas e concluídas de forma vinculada a cada árvore.
+- **A árvore cresce com o tempo e os resultados acumulados.** O estágio da árvore (`stage`) e seu tamanho visual (`visualSize`) refletem a dedicação de tempo focado e o histórico acumulado de tarefas colhidas nessa área ao longo dos dias.
+- **Criar novas tarefas não reduz a árvore.** O progresso das tarefas abertas atuais (`currentProgress`) é exibido como uma barra horizontal informativa secundária. Adicionar novas tarefas diminui o progresso da barra (já que há mais trabalho pendente), mas a árvore preserva seu tamanho e estágio integralmente, pois o esforço histórico acumulado nunca decresce.
 
 ---
 
@@ -19,14 +27,15 @@ cd C:\Projetos\taskgarden
 ```
 
 ### 2. Instalar as Dependências
-Como esta etapa já foi bootstrapeada, você pode restaurar ou verificar as dependências rodando:
+Instale os pacotes necessários rodando:
 ```bash
 npm install
 ```
 
 ### 3. Configurar as Variáveis de Ambiente (Supabase Cloud)
-Por padrão, o projeto inicia com **dados demonstrativos mockados** sem necessidade de chaves. Para conectar o seu banco de dados definitivo do Supabase Cloud futuramente:
+Por padrão, o projeto inicia em **Modo de Leitura** com **dados demonstrativos mockados** sem necessidade de chaves. O banco de dados Supabase Cloud ainda não está conectado nesta etapa de desenvolvimento.
 
+Caso deseje preparar a conexão do seu banco de dados definitivo futuramente:
 1. Crie um arquivo chamado `.env.local` na raiz do projeto (`C:\Projetos\taskgarden\.env.local`).
 2. Copie o conteúdo de `.env.example` e preencha com as suas chaves do projeto Supabase Cloud:
    ```env
@@ -34,7 +43,7 @@ Por padrão, o projeto inicia com **dados demonstrativos mockados** sem necessid
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-anonima-publica
    ```
 
-*Nota: Se o arquivo `.env.local` estiver ausente ou vazio, a aplicação entrará em modo de demonstração local e não tentará realizar conexões com a API.*
+*Nota: Se o arquivo `.env.local` estiver ausente ou vazio, a aplicação continuará em modo de demonstração local e não tentará realizar conexões com a API.*
 
 ### 4. Rodar o Servidor de Desenvolvimento
 Inicie o servidor local:
@@ -76,6 +85,8 @@ src/
 │   ├── (dashboard)/          # Grupo de rotas do painel
 │   │   ├── focus/            # Tela de cronômetro Pomodoro (provisória)
 │   │   ├── garden/           # Dashboard principal do Jardim Digital
+│   │   │   ├── [areaId]/     # Detalhe dinâmico da Área da Vida
+│   │   │   └── page.tsx      # Jardim exibindo o grid de Áreas
 │   │   ├── greenhouse/       # Estufa de histórico (tarefas arquivadas/podadas)
 │   │   ├── settings/         # Configurações de tema e chaves do Supabase
 │   │   ├── statistics/       # Gráficos de tempo focado e progresso
@@ -97,12 +108,15 @@ src/
 ├── domain/                   # Camada de Regras e Modelagem de Negócio
 │   └── growth/               # Lógica pura de crescimento e mapeamento de estágios
 │       ├── rules.ts          # Funções puras (Progresso -> Estágio -> Tamanho)
-│       └── types.ts          # Tipos (PlantStage, PlantVisualSize)
+│       └── types.ts          # Tipos (DemoLifeArea, DemoAreaTask)
 ├── mocks/                    # Dados para demonstração visual
-│   └── demo-tasks.ts         # Lista estática de tarefas no Jardim, Estufa e Podas
-└── services/                 # Serviços de Integração Externa
-    └── supabase/             # Clientes Supabase com verificação segura
-        ├── browser.ts        # Cliente do lado do navegador
-        ├── server.ts         # Cliente do lado do servidor
-        └── config.ts         # Validador de variáveis de ambiente
+│   ├── demo-life-areas.ts    # Lista estática de áreas da vida (Igreja, Trabalho, etc.)
+│   └── demo-area-tasks.ts    # Lista estática de tarefas vinculadas às áreas
+├── services/                 # Serviços de Integração Externa
+│   └── supabase/             # Clientes Supabase com verificação segura
+│       ├── browser.ts        # Cliente do lado do navegador
+│       ├── server.ts        # Cliente do lado do servidor
+│       └── config.ts         # Validador de variáveis de ambiente
+└── utils/                    # Utilitários gerais
+    └── date.ts               # Formatação de datas em padrão brasileiro
 ```

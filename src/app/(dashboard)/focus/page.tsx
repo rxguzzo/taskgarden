@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
 import { Card } from '../../../components/ui/Card';
-import { demoTasks } from '../../../mocks/demo-tasks';
+import { demoAreaTasks } from '../../../mocks/demo-area-tasks';
+import { demoLifeAreas } from '../../../mocks/demo-life-areas';
 
 export default function FocusPage() {
-  const activeTasks = demoTasks.filter(t => t.status === 'ACTIVE');
+  const activeTasks = demoAreaTasks.filter(t => t.status === 'ACTIVE');
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto text-center animate-fade-in">
@@ -29,11 +29,15 @@ export default function FocusPage() {
             defaultValue={activeTasks[0]?.id || ''}
             className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
           >
-            {activeTasks.map(task => (
-              <option key={task.id} value={task.id}>
-                🌱 {task.title} ({task.category})
-              </option>
-            ))}
+            {activeTasks.map(task => {
+              const area = demoLifeAreas.find(a => a.id === task.lifeAreaId);
+              const areaName = area ? area.name : 'Geral';
+              return (
+                <option key={task.id} value={task.id}>
+                  🌱 {task.title} ({areaName})
+                </option>
+              );
+            })}
           </select>
         </div>
 
