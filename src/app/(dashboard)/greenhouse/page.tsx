@@ -1,17 +1,20 @@
+'use client';
+
 import React from 'react';
-import { demoTasks } from '../../../mocks/demo-tasks';
+import { demoAreaTasks } from '../../../mocks/demo-area-tasks';
+import { demoLifeAreas } from '../../../mocks/demo-life-areas';
 import { Card } from '../../../components/ui/Card';
-import { getStageLabel } from '../../../domain/growth/rules';
+import { formatFriendlyDate } from '../../../utils/date';
 
 export default function GreenhousePage() {
   // Filtra as tarefas arquivadas (colhidas ou podadas)
-  const archivedTasks = demoTasks.filter(
+  const archivedTasks = demoAreaTasks.filter(
     task => task.status === 'COMPLETED' || task.status === 'PRUNED'
   );
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-zinc-100 dark:border-zinc-900 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Estufa de Histórico</h1>
           <p className="text-zinc-600 dark:text-zinc-400 mt-1">Exiba as plantas que foram colhidas ou podadas na sua jornada</p>
@@ -31,6 +34,15 @@ export default function GreenhousePage() {
           {archivedTasks.map(task => {
             const isCompleted = task.status === 'COMPLETED';
 
+            // Localiza a área correspondente
+            const area = demoLifeAreas.find(a => a.id === task.lifeAreaId);
+            const areaName = area ? area.name : 'Sem Área';
+
+            // Calcula XP aproximado gerado por esta tarefa concluída
+            const xpEarned = isCompleted
+              ? (task.difficulty === 'EASY' ? 120 : task.difficulty === 'MEDIUM' ? 150 : task.difficulty === 'HARD' ? 180 : 240)
+              : 0;
+
             return (
               <Card
                 key={task.id}
@@ -43,10 +55,10 @@ export default function GreenhousePage() {
               >
                 <div>
                   {/* Cabeçalho */}
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-2">
                     <div>
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-500">
-                        {task.category}
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400">
+                        Área: {areaName}
                       </span>
                       <h3 className="text-base font-bold text-zinc-900 dark:text-white mt-0.5">
                         {task.title}
@@ -54,7 +66,7 @@ export default function GreenhousePage() {
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                         isCompleted
                           ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20'
                           : 'bg-red-500/10 text-red-800 dark:text-red-300 border border-red-500/20'
@@ -67,15 +79,15 @@ export default function GreenhousePage() {
                   {/* Informações detalhadas */}
                   <div className="mt-4 grid grid-cols-2 gap-4 text-xs bg-zinc-100/50 dark:bg-zinc-950/20 p-3 rounded-xl">
                     <div>
-                      <span className="text-zinc-500 dark:text-zinc-400">Estágio Alcançado:</span>
-                      <p className="font-bold text-zinc-700 dark:text-zinc-300">
-                        {getStageLabel(task.stage)}
+                      <span className="text-zinc-500 dark:text-zinc-400">Dificuldade:</span>
+                      <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">
+                        {task.difficulty}
                       </p>
                     </div>
                     <div>
-                      <span className="text-zinc-500 dark:text-zinc-400">Pontuação de Crescimento:</span>
-                      <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {task.growthPoints} XP
+                      <span className="text-zinc-500 dark:text-zinc-400">XP Adicionado à Área:</span>
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        +{xpEarned} XP
                       </p>
                     </div>
                   </div>
@@ -83,7 +95,7 @@ export default function GreenhousePage() {
                   {/* Motivo da poda se houver */}
                   {!isCompleted && task.pruneReason && (
                     <div className="mt-3 p-2.5 bg-red-500/5 rounded-xl border border-red-500/10 text-xs">
-                      <span className="text-red-500 dark:text-red-400 font-semibold">Motivo da poda:</span>
+                      <span className="text-red-500 dark:text-red-400 font-semibold text-[10px]">Motivo da poda:</span>
                       <p className="text-zinc-600 dark:text-zinc-400 italic mt-0.5">
                         &quot;{task.pruneReason}&quot;
                       </p>
@@ -92,18 +104,19 @@ export default function GreenhousePage() {
                 </div>
 
                 {/* Ações */}
-                <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 flex justify-between items-center">
+                <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <span className="text-[11px] text-zinc-400">
-                    Arquivado em: {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-BR') : 'Não definido'}
+                    Prazo: {formatFriendlyDate(task.dueDate)}
                   </span>
                   
                   {!isCompleted && (
                     <button
                       type="button"
-                      className="px-3 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold rounded-xl text-xs hover:bg-emerald-100 transition-colors"
-                      title="Restaurar semente ao Jardim ativo"
+                      disabled
+                      className="px-3 py-1.5 bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600 font-semibold rounded-xl text-xs cursor-not-allowed text-center"
+                      title="Restauração de tarefas estará disponível em breve com o banco de dados."
                     >
-                      Restaurar Planta
+                      Restaurar Planta (Em breve)
                     </button>
                   )}
                 </div>

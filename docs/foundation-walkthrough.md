@@ -1,69 +1,81 @@
 # Documentação de Fundação — TaskGarden MVP
 
-Este documento registra o escopo técnico, decisões de arquitetura e validações realizadas para consolidar a **Fase 1: Fundação Estrutural** do TaskGarden.
+Este documento registra o escopo técnico, decisões de arquitetura, novos conceitos e validações realizadas para consolidar a **Fase 1: Fundação Estrutural** do TaskGarden.
 
 ---
 
-## 1. Escopo Implementado
-- **Bootstrap do Next.js**: Inicializado na raiz do projeto com TypeScript, Tailwind CSS v4, ESLint, diretório `src/` e suporte a App Router.
-- **Estrutura de Rotas e Layouts**:
-  - Layout isolado para fluxos de autenticação em `(auth)`.
-  - Layout consolidado para o painel em `(dashboard)` unificando menus de navegação.
-  - Rotas provisórias e navegáveis: `/`, `/garden`, `/tasks`, `/focus`, `/greenhouse`, `/statistics` e `/settings`.
-- **Navegação Responsiva**:
-  - Configuração centralizada de navegação em `src/config/navigation.ts`.
-  - Componente `Sidebar` visível exclusivamente em telas de desktop.
-  - Componente `BottomNav` visível exclusivamente em telas de celulares/tablets.
-- **Componentização de Plantas (`PlantVisual`)**:
-  - Componente visual baseado em SVGs dinâmicos inline representando os estágios: `SEED`, `SPROUT`, `SAPLING`, `TREE` e `MATURE`.
-  - Controle de tamanho visual baseado em enums estáticos (`SMALL`, `MEDIUM`, `LARGE`).
-  - Suporte de acessibilidade (ARIA labels) e conformidade de movimentos (`prefers-reduced-motion` no CSS).
-- **Estrutura de Integração com Supabase Cloud**:
-  - Instalação estrutural das dependências `@supabase/supabase-js` e `@supabase/ssr`.
-  - Configuração do cliente de browser, servidor e validador de chaves de ambiente com suporte a fallbacks seguros (sem crash do app).
-- **Dados Demonstrativos**:
-  - Isolamento de tarefas e estados mockados no arquivo `src/mocks/demo-tasks.ts`.
+## 1. Modelo Conceitual do Jardim
+
+No TaskGarden, a gamificação é regida pelos seguintes princípios de cultivo:
+- **Uma árvore representa uma área da vida.** (Ex: Igreja, Trabalho, Academia, Estudos, Vida pessoal, Projetos).
+- **As tarefas pertencem a essa área** por meio da relação do atributo `life_area_id`.
+- **A árvore cresce com o tempo e os resultados acumulados.** O estágio da árvore (`stage`) e seu tamanho visual (`visualSize`) representam o investimento de tempo total focado e tarefas concluídas historicamente.
+- **Criar novas tarefas não reduz a árvore.** O progresso das tarefas abertas atuais (`currentProgress`) é exibido como um indicador horizontal secundário. Adicionar novas tarefas reduz temporariamente a porcentagem da barra de progresso, mas a árvore no Jardim preserva seu tamanho e estágio integralmente, pois o esforço histórico acumulado é permanente e nunca decresce.
 
 ---
 
-## 2. Arquitetura Criada
+## 2. Lógica de Evolução e Mapeamento
 
-A fundação adota uma arquitetura Next.js modularizada, dividida em camadas lógicas simples:
+### Árvores das Áreas da Vida (`life_areas`)
+- **Estágio da árvore (`PlantStage`)**: `SEED` (Semente), `SPROUT` (Broto), `SAPLING` (Muda), `TREE` (Árvore) e `MATURE` (Árvore Madura). Representa a dedicação histórica acumulada da área.
+- **Tamanho da árvore (`PlantVisualSize`)**: `SMALL` (Pequena), `MEDIUM` (Média) e `LARGE` (Grande). Representa a intensidade dessa dedicação acumulada.
+- **Saúde da área (`healthStatus`)**: Representa a atividade recente daquela área:
+  - `HEALTHY` (Saudável): Atualizado recentemente e frequência em dia.
+  - `THIRSTY` (Com sede): Sem atividades registradas há alguns dias.
+  - `IDLE` (Parada): Sem nenhuma atividade recente.
+  - `OVERLOADED` (Sobrecarregada): Excesso de tarefas ativas simultâneas.
+
+### Tarefas (`tasks`)
+- Cada tarefa possui atributos como `progress` (0 a 100%), `difficulty` (EASY, MEDIUM, HARD, VERY_HARD) e `priority` (LOW, MEDIUM, HIGH, URGENT).
+- As estatísticas da área de vida no painel principal são calculadas dinamicamente via funções puras:
+  - **Progresso Médio**: Média aritmética do progresso das tarefas ativas da área. Se não houver tarefas ativas, retorna `null` e a interface exibe o texto informativo `"Sem tarefas ativas"` (evitando barras vazias ou porcentagens ambíguas).
+
+---
+
+## 3. Estrutura e Arquitetura Criada
+
+O projeto Next.js modularizado adota as seguintes pastas na raiz `C:\Projetos\taskgarden`:
 
 ```text
 C:\Projetos\taskgarden
+├── docs/                     # Documentação técnica oficial do repositório
+│   └── foundation-walkthrough.md
 ├── src/
-│   ├── app/                    # Rotas, Layouts Globais e CSS
-│   ├── components/             # Componentes React Reutilizáveis
-│   │   ├── layout/             # Sidebar e BottomNav
-│   │   ├── plants/             # PlantVisual (SVGs)
-│   │   └── ui/                 # Elementos básicos (Card)
-│   ├── config/                 # Arquivo central de rotas de navegação
-│   ├── domain/                 # Camada de regras e tipos puras do motor de crescimento
-│   ├── mocks/                  # Dados estáticos simulados para demonstração
-│   └── services/               # Clientes e utilitários de integração do Supabase
+│   ├── app/                  # Roteamento e Páginas (App Router)
+│   │   ├── (auth)/           # Grupo de login/cadastro
+│   │   ├── (dashboard)/      # Grupo do Jardim, Detalhes de Área, Foco, etc.
+│   │   │   └── garden/
+│   │   │       ├── [areaId]/ # Rota dinâmica de detalhes da área
+│   │   │       └── page.tsx
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components/           # Componentes React Reutilizáveis
+│   │   ├── layout/           # Sidebar e BottomNav responsivos
+│   │   ├── plants/           # PlantVisual (SVGs)
+│   │   └── ui/               # Componente Card (Glassmorphism)
+│   ├── config/               # Configuração centralizada de navegação
+│   ├── domain/               # Lógica pura de regras do motor de crescimento
+│   │   └── growth/
+│   │       ├── rules.ts      # Cálculo dinâmico e helpers de labels
+│   │       └── types.ts      # Interfaces das Áreas e Tarefas
+│   ├── mocks/                # Dados estáticos simulados
+│   │   ├── demo-life-areas.ts
+│   │   └── demo-area-tasks.ts
+│   ├── services/             # Integração com Supabase Cloud (estrutura)
+│   └── utils/                # Utilitários genéricos
+│       └── date.ts           # Formatação de datas em padrão brasileiro
 ```
 
 ---
 
-## 3. Versões Principais
-- **Next.js:** `16.2.9`
-- **React / React DOM:** `19.2.4`
-- **Tailwind CSS:** `v4.0.0`
-- **TypeScript:** `^5.0.0`
-- **@supabase/supabase-js:** `^2.49.0`
-- **@supabase/ssr:** `^0.5.2`
+## 4. Decisões Técnicas Principais
+- **Suporte ao Next.js 16/15 (Params Assíncronos)**: Na rota `/garden/[areaId]`, o objeto `params` é tratado como uma `Promise` (`Promise<{ areaId: string }>`) e resolvido via `await params`. A função `generateStaticParams()` foi implementada para garantir a pré-geração estática das rotas mockadas na compilação.
+- **Tratamento de Área Inexistente**: Caso o ID acessado na rota `/garden/[areaId]` seja inválido, o Next.js dispara imediatamente `notFound()` (redirecionando para um layout 404 personalizado e coerente).
+- **Responsividade Ultrawide**: Configuração da grade de jardim com largura flexível até `max-w-[1600px]`, permitindo visualização de 5 colunas em resoluções de 2560px, 4 colunas em 1920px, 3 colunas em 1366px, 2 colunas em tablets e 1 coluna em celulares.
 
 ---
 
-## 4. Decisões Técnicas
-- **Tailwind v4:** Adoção da versão mais recente utilizando a nova sintaxe nativa `@import "tailwindcss";` no arquivo CSS principal.
-- **Isolamento de Regras do Componente SVG:** O componente `PlantVisual` é puramente opinativo em termos visuais e apenas renderiza as imagens dependendo das propriedades recebidas, mantendo as regras de negócio no domínio (`src/domain/growth`).
-- **Resiliência de Integração:** O aplicativo é preparado para funcionar de forma demonstrativa local e sem credenciais na inicialização das páginas estáticas. Caso alguma chamada futura tente utilizar o Supabase sem variáveis de ambiente, o instanciador do cliente intercepta a chamada e dispara uma exceção clara alertando o desenvolvedor no console.
-
----
-
-## 5. Comandos de Validação
+## 5. Comandos de Validação e Qualidade
 Os seguintes comandos devem ser executados na raiz do projeto para assegurar a integridade do código antes de novas implementações:
 
 - **Linting**:
@@ -78,15 +90,3 @@ Os seguintes comandos devem ser executados na raiz do projeto para assegurar a i
   ```bash
   npm run build
   ```
-
----
-
-## 6. Limitações Atuais & Próximos Módulos
-Nesta etapa de fundação estrutural, não estão disponíveis:
-- Conexão e sincronização ativa com banco de dados Supabase Cloud.
-- Migrations de tabelas do PostgreSQL e regras RLS.
-- Validação funcional de sessões de usuário no Middleware do Next.js.
-- Cronômetro Pomodoro interativo persistindo dados.
-- Regras complexas e dinâmicas de evolução de XP.
-
-Essas funcionalidades serão desenvolvidas nos módulos subsequentes do roadmap de desenvolvimento.
