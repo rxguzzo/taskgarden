@@ -4,9 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navigationItems, NavigationItem } from '../../config/navigation';
-import { RenderNavigationIcon } from './Sidebar';
+import { RenderNavigationIcon, ProfileData } from './Sidebar';
 
-export const BottomNav: React.FC = () => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const BottomNav: React.FC<{ profile: ProfileData }> = ({ profile }) => {
   const pathname = usePathname();
 
   return (
