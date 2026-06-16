@@ -54,3 +54,46 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Animações de Jardinagem para o Modal de Plantar */
+@keyframes seedDrop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -12px) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, 34px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 34px) scale(0.8);
+  }
+}
+
+@keyframes sproutGrow {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4);
+  }
+  45% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.animate-seed-drop {
+  animation: seedDrop 1.2s ease-in-out infinite;
+}
+
+.animate-sprout-grow {
+  animation: sproutGrow 1.2s ease-in-out infinite;
+}
