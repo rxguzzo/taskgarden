@@ -35,19 +35,18 @@ DECLARE
     cleaned_name VARCHAR(100);
 BEGIN
     -- Obter o nome dos metadados de forma qualificada
-    raw_name := pg_catalog.coalesce(
+    raw_name := coalesce(
         new.raw_user_meta_data->>'name',
         ''
     );
 
     -- Limpar espaços
-    raw_name := pg_catalog.trim(raw_name);
+    raw_name := pg_catalog.btrim(raw_name);
 
     -- Tratar nome ausente ou vazio
     IF raw_name = '' THEN
         -- Fallback 1: Prefixo do email
-        raw_name := pg_catalog.split_part(new.email, '@', 1);
-        raw_name := pg_catalog.trim(raw_name);
+        raw_name := pg_catalog.btrim(pg_catalog.split_part(new.email, '@', 1));
 
         -- Fallback final
         IF raw_name = '' OR raw_name IS NULL THEN
@@ -56,7 +55,7 @@ BEGIN
     END IF;
 
     -- Cortar se for maior que 100 caracteres
-    cleaned_name := pg_catalog.substring(raw_name FROM 1 FOR 100);
+    cleaned_name := pg_catalog.substr(raw_name, 1, 100);
 
     -- Inserir perfil com ON CONFLICT DO NOTHING
     INSERT INTO public.profiles (id, display_name, timezone)
@@ -79,16 +78,16 @@ CREATE TRIGGER on_auth_user_created
 INSERT INTO public.profiles (id, display_name, timezone)
 SELECT
     u.id,
-    pg_catalog.substring(
-        pg_catalog.trim(
-            pg_catalog.coalesce(
+    pg_catalog.substr(
+        pg_catalog.btrim(
+            coalesce(
                 u.raw_user_meta_data->>'name',
-                pg_catalog.coalesce(
-                    pg_catalog.nullif(pg_catalog.split_part(u.email, '@', 1), ''),
+                coalesce(
+                    nullif(pg_catalog.split_part(u.email, '@', 1), ''),
                     'Jardineiro'
                 )
             )
-        ) FROM 1 FOR 100
+        ), 1, 100
     ),
     'America/Sao_Paulo'
 FROM auth.users u
