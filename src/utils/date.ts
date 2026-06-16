@@ -3,7 +3,7 @@
  * Retorna um fallback seguro caso a data seja inválida ou vazia.
  */
 export function formatFriendlyDate(isoString: string | undefined | null): string {
-  if (!isoString) return 'Sem registro';
+  if (!isoString) return 'Sem data';
   
   try {
     const date = new Date(isoString);

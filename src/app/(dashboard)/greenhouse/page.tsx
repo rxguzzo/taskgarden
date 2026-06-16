@@ -1,16 +1,44 @@
-'use client';
-
 import React from 'react';
-import { demoAreaTasks } from '../../../mocks/demo-area-tasks';
-import { demoLifeAreas } from '../../../mocks/demo-life-areas';
+import { redirect } from 'next/navigation';
+import { getServerClient } from '../../../services/supabase/server';
 import { Card } from '../../../components/ui/Card';
 import { formatFriendlyDate } from '../../../utils/date';
 
-export default function GreenhousePage() {
-  // Filtra as tarefas arquivadas (colhidas ou podadas)
-  const archivedTasks = demoAreaTasks.filter(
-    task => task.status === 'COMPLETED' || task.status === 'PRUNED'
-  );
+export const revalidate = 0;
+
+export default async function GreenhousePage() {
+  const supabase = await getServerClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect('/login');
+  }
+
+  // Buscar todas as tarefas arquivadas (concluídas ou podadas)
+  const { data: tasks, error: tasksError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .in('status', ['COMPLETED', 'PRUNED'])
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false });
+
+  if (tasksError) {
+    console.error('Erro ao carregar estufa de histórico:', tasksError);
+  }
+
+  // Buscar áreas para mostrar os nomes
+  const { data: areas, error: areasError } = await supabase
+    .from('life_areas')
+    .select('id, name')
+    .eq('user_id', user.id);
+
+  if (areasError) {
+    console.error('Erro ao buscar áreas de vida para a estufa:', areasError);
+  }
+
+  const areaMap = new Map((areas || []).map((a) => [a.id, a.name]));
+  const archivedTasks = tasks || [];
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 animate-fade-in">
@@ -18,10 +46,6 @@ export default function GreenhousePage() {
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Estufa de Histórico</h1>
           <p className="text-zinc-600 dark:text-zinc-400 mt-1">Exiba as plantas que foram colhidas ou podadas na sua jornada</p>
-        </div>
-
-        <div className="bg-amber-500/10 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 px-4 py-3 rounded-2xl border border-amber-500/20 text-xs max-w-sm">
-          ⚠️ **Dados Demonstrativos**: Esta tela exibe dados de exemplo históricos da fundação estrutural do MVP.
         </div>
       </div>
 
@@ -31,17 +55,12 @@ export default function GreenhousePage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {archivedTasks.map(task => {
+          {archivedTasks.map((task) => {
             const isCompleted = task.status === 'COMPLETED';
+            const areaName = areaMap.get(task.life_area_id) || 'Área Arquivada/Desconhecida';
 
-            // Localiza a área correspondente
-            const area = demoLifeAreas.find(a => a.id === task.lifeAreaId);
-            const areaName = area ? area.name : 'Sem Área';
-
-            // Calcula XP aproximado gerado por esta tarefa concluída
-            const xpEarned = isCompleted
-              ? (task.difficulty === 'EASY' ? 120 : task.difficulty === 'MEDIUM' ? 150 : task.difficulty === 'HARD' ? 180 : 240)
-              : 0;
+            // Calcula tempo de dedicação estimado temporário para esta tarefa concluída (MVP M2)
+            const estimatedTime = isCompleted ? '45 min' : '0 min';
 
             return (
               <Card
@@ -79,45 +98,39 @@ export default function GreenhousePage() {
                   {/* Informações detalhadas */}
                   <div className="mt-4 grid grid-cols-2 gap-4 text-xs bg-zinc-100/50 dark:bg-zinc-950/20 p-3 rounded-xl">
                     <div>
-                      <span className="text-zinc-500 dark:text-zinc-400">Dificuldade:</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">Dificuldade / Prioridade:</span>
                       <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">
-                        {task.difficulty}
+                        {task.difficulty} / {task.priority}
                       </p>
                     </div>
                     <div>
-                      <span className="text-zinc-500 dark:text-zinc-400">XP Adicionado à Área:</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">Tempo Estimado:</span>
                       <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        +{xpEarned} XP
+                        {estimatedTime}
                       </p>
                     </div>
                   </div>
 
                   {/* Motivo da poda se houver */}
-                  {!isCompleted && task.pruneReason && (
+                  {!isCompleted && task.prune_reason && (
                     <div className="mt-3 p-2.5 bg-red-500/5 rounded-xl border border-red-500/10 text-xs">
                       <span className="text-red-500 dark:text-red-400 font-semibold text-[10px]">Motivo da poda:</span>
                       <p className="text-zinc-600 dark:text-zinc-400 italic mt-0.5">
-                        &quot;{task.pruneReason}&quot;
+                        &quot;{task.prune_reason}&quot;
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Ações */}
+                {/* Datas */}
                 <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <span className="text-[11px] text-zinc-400">
-                    Prazo: {formatFriendlyDate(task.dueDate)}
+                    Prazo: {formatFriendlyDate(task.due_date)}
                   </span>
-                  
-                  {!isCompleted && (
-                    <button
-                      type="button"
-                      disabled
-                      className="px-3 py-1.5 bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600 font-semibold rounded-xl text-xs cursor-not-allowed text-center"
-                      title="Restauração de tarefas estará disponível em breve com o banco de dados."
-                    >
-                      Restaurar Planta (Em breve)
-                    </button>
+                  {isCompleted && task.completed_at && (
+                    <span className="text-[11px] text-zinc-400">
+                      Colhida em: {formatFriendlyDate(task.completed_at)}
+                    </span>
                   )}
                 </div>
               </Card>

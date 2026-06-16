@@ -1,7 +1,7 @@
-import { PlantStage, PlantVisualSize, DemoAreaTask } from './types';
+import { PlantStage, PlantVisualSize, HealthStatus, Task } from './types';
 
 /**
- * Retorna o rótulo amigável em português para o estágio da planta
+ * Retorna o rótulo amigável em português para o estágio da planta.
  */
 export function getStageLabel(stage: PlantStage): string {
   switch (stage) {
@@ -15,7 +15,7 @@ export function getStageLabel(stage: PlantStage): string {
 }
 
 /**
- * Retorna o rótulo amigável em português para o tamanho visual da planta
+ * Retorna o rótulo amigável em português para o tamanho visual da planta.
  */
 export function getVisualSizeLabel(size: PlantVisualSize): string {
   switch (size) {
@@ -27,9 +27,9 @@ export function getVisualSizeLabel(size: PlantVisualSize): string {
 }
 
 /**
- * Retorna o rótulo amigável em português para o estado de saúde da área
+ * Retorna o rótulo amigável em português para o estado de saúde da área.
  */
-export function getHealthStatusLabel(status: 'HEALTHY' | 'THIRSTY' | 'IDLE' | 'OVERLOADED'): string {
+export function getHealthStatusLabel(status: HealthStatus): string {
   switch (status) {
     case 'HEALTHY': return 'Saudável';
     case 'THIRSTY': return 'Com Sede';
@@ -40,9 +40,9 @@ export function getHealthStatusLabel(status: 'HEALTHY' | 'THIRSTY' | 'IDLE' | 'O
 }
 
 /**
- * Retorna a classe de cor CSS para o estado de saúde da área
+ * Retorna a classe de cor CSS para o estado de saúde da área.
  */
-export function getHealthStatusColorClass(status: 'HEALTHY' | 'THIRSTY' | 'IDLE' | 'OVERLOADED'): string {
+export function getHealthStatusColorClass(status: HealthStatus): string {
   switch (status) {
     case 'HEALTHY':
       return 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20';
@@ -58,34 +58,73 @@ export function getHealthStatusColorClass(status: 'HEALTHY' | 'THIRSTY' | 'IDLE'
 }
 
 /**
- * Calcula a quantidade de tarefas ativas de uma área de vida
+ * Calcula a quantidade de tarefas ativas de uma área de vida.
  */
-export function getAreaActiveTasksCount(tasks: DemoAreaTask[], areaId: string): number {
-  return tasks.filter(t => t.lifeAreaId === areaId && t.status === 'ACTIVE').length;
+export function getAreaActiveTasksCount(tasks: Task[], areaId: string): number {
+  return tasks.filter(t => t.life_area_id === areaId && t.status === 'ACTIVE' && t.deleted_at === null).length;
 }
 
 /**
- * Calcula a quantidade de tarefas concluídas de uma área de vida
+ * Calcula a quantidade de tarefas concluídas de uma área de vida.
  */
-export function getAreaCompletedTasksCount(tasks: DemoAreaTask[], areaId: string): number {
-  return tasks.filter(t => t.lifeAreaId === areaId && t.status === 'COMPLETED').length;
+export function getAreaCompletedTasksCount(tasks: Task[], areaId: string): number {
+  return tasks.filter(t => t.life_area_id === areaId && t.status === 'COMPLETED' && t.deleted_at === null).length;
 }
 
 /**
- * Calcula a quantidade de tarefas podadas de uma área de vida
+ * Calcula a quantidade de tarefas podadas de uma área de vida.
  */
-export function getAreaPrunedTasksCount(tasks: DemoAreaTask[], areaId: string): number {
-  return tasks.filter(t => t.lifeAreaId === areaId && t.status === 'PRUNED').length;
+export function getAreaPrunedTasksCount(tasks: Task[], areaId: string): number {
+  return tasks.filter(t => t.life_area_id === areaId && t.status === 'PRUNED' && t.deleted_at === null).length;
 }
 
 /**
- * Calcula o progresso médio das tarefas ativas de uma área de vida.
+ * Calcula o progresso médio das tarefas ativas (ACTIVE) de uma área de vida.
  * Se não houver tarefas ativas, retorna null.
  */
-export function getAreaProgress(tasks: DemoAreaTask[], areaId: string): number | null {
-  const activeTasks = tasks.filter(t => t.lifeAreaId === areaId && t.status === 'ACTIVE');
+export function getAreaProgress(tasks: Task[], areaId: string): number | null {
+  const activeTasks = tasks.filter(t => t.life_area_id === areaId && t.status === 'ACTIVE' && t.deleted_at === null);
   if (activeTasks.length === 0) return null;
 
   const sumProgress = activeTasks.reduce((sum, t) => sum + Math.max(0, Math.min(100, t.progress)), 0);
   return Math.round(sumProgress / activeTasks.length);
+}
+
+/**
+ * Calcula o estágio de crescimento da árvore (PlantStage) baseado temporariamente em tarefas concluídas.
+ * M2 usa tarefas concluídas como aproximação temporária.
+ * M3 substituirá essa lógica por work_sessions e tempo real dedicado.
+ */
+export function calculatePlantStage(completedCount: number): PlantStage {
+  if (completedCount === 0) return 'SEED';
+  if (completedCount <= 3) return 'SPROUT';
+  if (completedCount <= 7) return 'SAPLING';
+  if (completedCount <= 15) return 'TREE';
+  return 'MATURE';
+}
+
+/**
+ * Calcula o tamanho visual da planta (PlantVisualSize) baseado no estágio e tarefas concluídas.
+ */
+export function calculatePlantVisualSize(stage: PlantStage, completedCount: number): PlantVisualSize {
+  if (stage === 'SEED' || stage === 'SPROUT') {
+    return 'SMALL';
+  }
+  if (stage === 'SAPLING') {
+    return 'MEDIUM';
+  }
+  if (stage === 'TREE') {
+    return completedCount < 12 ? 'MEDIUM' : 'LARGE';
+  }
+  return 'LARGE'; // MATURE
+}
+
+/**
+ * Calcula o estado de saúde da área (HealthStatus) baseado no número de tarefas ativas.
+ */
+export function calculateHealthStatus(activeCount: number): HealthStatus {
+  if (activeCount === 0) return 'IDLE';
+  if (activeCount <= 3) return 'HEALTHY';
+  if (activeCount <= 6) return 'THIRSTY';
+  return 'OVERLOADED';
 }
