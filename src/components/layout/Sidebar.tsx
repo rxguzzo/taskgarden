@@ -51,7 +51,14 @@ export const RenderNavigationIcon = ({ type, className = 'w-5 h-5' }: { type: st
   }
 };
 
-export const Sidebar: React.FC = () => {
+export interface ProfileData {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  timezone: string;
+}
+
+export const Sidebar: React.FC<{ profile: ProfileData }> = ({ profile }) => {
   const pathname = usePathname();
 
   return (
@@ -85,25 +92,41 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      {/* Rodapé - Usuário Demo */}
+      {/* Rodapé - Informações do Usuário Real */}
       <div className="p-4 border-t border-emerald-900 bg-emerald-950/50">
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-bold">
-            U
-          </div>
+          {profile?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatar_url}
+              alt={profile.display_name || 'Avatar'}
+              className="w-9 h-9 rounded-full object-cover border border-emerald-800"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-bold">
+              {(profile?.display_name || 'J').charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">Usuário Demo</p>
-            <p className="text-xs text-emerald-400 truncate">Sessão Local Ativa</p>
+            <p className="text-sm font-semibold text-white truncate">
+              {profile?.display_name || 'Jardineiro'}
+            </p>
+            <p className="text-[10px] text-emerald-400 truncate">
+              {profile?.timezone || 'America/Sao_Paulo'}
+            </p>
           </div>
-          <Link
-            href="/login"
+          <button
+            onClick={async () => {
+              const { signOutAction } = await import('@/app/(dashboard)/settings/actions');
+              await signOutAction();
+            }}
             className="p-1.5 rounded-lg hover:bg-emerald-900 text-emerald-400 hover:text-white transition-colors"
-            title="Sair (Logout provisório)"
+            title="Sair do Sistema"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
             </svg>
-          </Link>
+          </button>
         </div>
       </div>
     </aside>
