@@ -49,9 +49,23 @@ export default async function GardenPage() {
     console.error('Erro ao buscar tarefas:', tasksError);
   }
 
+  // Buscar todas as sessões de trabalho ativas do usuário
+  const { data: workSessions, error: sessionsError } = await supabase
+    .from('work_sessions')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null);
+
+  if (sessionsError) {
+    console.error('Erro ao buscar sessões de trabalho:', sessionsError);
+  }
+
+  const allSessions = workSessions || [];
+
   // Mapear áreas para summaries reais
   const summaries: LifeAreaSummary[] = (areas || []).map((area) => {
     const areaTasks = (tasks || []).filter((t) => t.life_area_id === area.id);
+    const areaSessions = allSessions.filter((s) => s.life_area_id === area.id);
 
     const activeTasks = areaTasks.filter((t) => t.status === 'ACTIVE');
     const completedTasks = areaTasks.filter((t) => t.status === 'COMPLETED');
@@ -61,16 +75,20 @@ export default async function GardenPage() {
     const completedTasksCount = completedTasks.length;
     const prunedTasksCount = prunedTasks.length;
 
-    const totalMinutes = completedTasksCount * 45;
-    const stage = calculatePlantStage(completedTasksCount);
-    const visualSize = calculatePlantVisualSize(stage, completedTasksCount);
+    // M3: Soma de minutos reais das sessões daquela área
+    const totalMinutes = areaSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+    const stage = calculatePlantStage(totalMinutes);
+    const visualSize = calculatePlantVisualSize(stage, totalMinutes);
     const healthStatus = calculateHealthStatus(activeTasksCount);
     const currentProgress = getAreaProgress(areaTasks, area.id);
 
-    // Calcular data da última atividade (seja da área ou de alguma tarefa)
+    // Calcular data da última atividade (incluindo as sessões)
     const dates = [new Date(area.updated_at).getTime()];
     areaTasks.forEach((t) => {
       dates.push(new Date(t.updated_at).getTime());
+    });
+    areaSessions.forEach((s) => {
+      dates.push(new Date(s.updated_at).getTime());
     });
     const maxTime = Math.max(...dates);
     const lastActivityAt = new Date(maxTime).toISOString();
@@ -118,7 +136,9 @@ export default async function GardenPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {summaries.map((area) => {
-            const hoursDedicated = Math.round(area.totalMinutes / 60);
+            const hoursDedicated = Math.floor(area.totalMinutes / 60);
+            const remainingMins = area.totalMinutes % 60;
+            const timeLabel = hoursDedicated > 0 ? `${hoursDedicated}h ${remainingMins}m` : `${remainingMins}m`;
 
             return (
               <Link
@@ -152,11 +172,11 @@ export default async function GardenPage() {
                   {/* Dados Acumulados Históricos */}
                   <div className="grid grid-cols-2 gap-2 text-xs bg-zinc-100/50 dark:bg-zinc-950/40 p-2.5 rounded-xl border border-zinc-100/50 dark:border-zinc-900/50">
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-semibold">Tempo</span>
-                      <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{hoursDedicated}h dedicadas</p>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-semibold">Tempo Real</span>
+                      <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{timeLabel}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 uppercase font-semibold">Tamanho</span>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-semibold">Tamanho</span>
                       <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{getVisualSizeLabel(area.visualSize)}</p>
                     </div>
                   </div>
@@ -178,7 +198,7 @@ export default async function GardenPage() {
                       </div>
                       <div className="w-full bg-zinc-200 dark:bg-zinc-850 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                          className="bg-emerald-50 h-full rounded-full transition-all duration-500"
                           style={{ width: `${area.currentProgress}%` }}
                         />
                       </div>

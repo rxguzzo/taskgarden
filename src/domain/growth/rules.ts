@@ -91,22 +91,20 @@ export function getAreaProgress(tasks: Task[], areaId: string): number | null {
 }
 
 /**
- * Calcula o estágio de crescimento da árvore (PlantStage) baseado temporariamente em tarefas concluídas.
- * M2 usa tarefas concluídas como aproximação temporária.
- * M3 substituirá essa lógica por work_sessions e tempo real dedicado.
+ * Calcula o estágio de crescimento da árvore (PlantStage) baseado nos minutos reais de dedicação.
  */
-export function calculatePlantStage(completedCount: number): PlantStage {
-  if (completedCount === 0) return 'SEED';
-  if (completedCount <= 3) return 'SPROUT';
-  if (completedCount <= 7) return 'SAPLING';
-  if (completedCount <= 15) return 'TREE';
-  return 'MATURE';
+export function calculatePlantStage(totalMinutes: number): PlantStage {
+  if (totalMinutes === 0) return 'SEED';
+  if (totalMinutes <= 120) return 'SPROUT';   // até 2 horas
+  if (totalMinutes <= 360) return 'SAPLING';  // de 2h a 6h
+  if (totalMinutes <= 900) return 'TREE';     // de 6h a 15h
+  return 'MATURE';                            // mais de 15h
 }
 
 /**
- * Calcula o tamanho visual da planta (PlantVisualSize) baseado no estágio e tarefas concluídas.
+ * Calcula o tamanho visual da planta (PlantVisualSize) baseado no estágio e minutos totais.
  */
-export function calculatePlantVisualSize(stage: PlantStage, completedCount: number): PlantVisualSize {
+export function calculatePlantVisualSize(stage: PlantStage, totalMinutes: number): PlantVisualSize {
   if (stage === 'SEED' || stage === 'SPROUT') {
     return 'SMALL';
   }
@@ -114,7 +112,7 @@ export function calculatePlantVisualSize(stage: PlantStage, completedCount: numb
     return 'MEDIUM';
   }
   if (stage === 'TREE') {
-    return completedCount < 12 ? 'MEDIUM' : 'LARGE';
+    return totalMinutes < 600 ? 'MEDIUM' : 'LARGE';
   }
   return 'LARGE'; // MATURE
 }

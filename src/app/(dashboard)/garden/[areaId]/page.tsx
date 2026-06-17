@@ -61,24 +61,41 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
 
   const areaTasks = tasks || [];
   const activeTasks = areaTasks.filter(t => t.status === 'ACTIVE');
-  const completedTasks = areaTasks.filter(t => t.status === 'COMPLETED');
+
+  // Buscar sessões de trabalho associadas a esta área
+  const { data: sessions, error: sessionsError } = await supabase
+    .from('work_sessions')
+    .select('*')
+    .eq('life_area_id', area.id)
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('worked_at', { ascending: false });
+
+  if (sessionsError) {
+    console.error('Erro ao buscar sessões de trabalho da área:', sessionsError);
+  }
+
+  const areaSessions = sessions || [];
 
   // Deriva dados dinamicamente usando as regras de crescimento reais
   const activeCount = activeTasks.length;
-  const completedCount = completedTasks.length;
 
-  const totalMinutes = completedCount * 45;
-  const stage = calculatePlantStage(completedCount);
-  const visualSize = calculatePlantVisualSize(stage, completedCount);
+  // M3: Esforço real por work_sessions.duration_minutes
+  const totalMinutes = areaSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
+  const stage = calculatePlantStage(totalMinutes);
+  const visualSize = calculatePlantVisualSize(stage, totalMinutes);
   const healthStatus = calculateHealthStatus(activeCount);
   const currentProgress = getAreaProgress(areaTasks, area.id);
   
   const hoursDedicated = Math.round(totalMinutes / 60);
 
-  // Calcular última rega / atividade
+  // Calcular última atividade (incluindo as sessões)
   const dates = [new Date(area.updated_at).getTime()];
   areaTasks.forEach((t) => {
     dates.push(new Date(t.updated_at).getTime());
+  });
+  areaSessions.forEach((s) => {
+    dates.push(new Date(s.updated_at).getTime());
   });
   const maxTime = Math.max(...dates);
   const lastActivityAt = new Date(maxTime).toISOString();
@@ -139,10 +156,12 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
               </div>
               <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-900/50 pb-2">
                 <span className="text-zinc-500 dark:text-zinc-400">Esforço Total:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">{hoursDedicated} horas</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {hoursDedicated > 0 ? `${hoursDedicated} ${hoursDedicated === 1 ? 'hora' : 'horas'}` : `${totalMinutes} min`}
+                </span>
               </div>
               <div className="flex justify-between items-center text-sm pb-1">
-                <span className="text-zinc-500 dark:text-zinc-400">Última Rega:</span>
+                <span className="text-zinc-500 dark:text-zinc-400">Última Atividade:</span>
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">{formatFriendlyDate(lastActivityAt)}</span>
               </div>
             </div>
@@ -157,7 +176,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
                   </div>
                   <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
                     <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                      className="bg-emerald-50 h-full rounded-full transition-all duration-500"
                       style={{ width: `${currentProgress}%` }}
                     />
                   </div>
@@ -173,7 +192,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
 
         {/* Lado Direito: Listagem de Tarefas Real-time/Base de Dados */}
         <div className="lg:col-span-8">
-          <AreaTasksList tasks={areaTasks} />
+          <AreaTasksList tasks={areaTasks} sessions={areaSessions} />
         </div>
       </div>
     </div>
