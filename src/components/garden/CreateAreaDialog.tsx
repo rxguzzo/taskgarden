@@ -38,7 +38,7 @@ export function CreateAreaDialog() {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 w-screen h-screen bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">
           <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
             <button
               onClick={() => setIsOpen(false)}

@@ -12,12 +12,7 @@ export const navigationItems: NavigationItem[] = [
     href: '/garden',
     iconType: 'garden',
   },
-  {
-    id: 'plant',
-    label: 'Plantar',
-    href: '/tasks',
-    iconType: 'plant',
-  },
+
   {
     id: 'focus',
     label: 'Foco',
