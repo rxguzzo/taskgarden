@@ -56,6 +56,22 @@ export interface LifeAreaSummary extends LifeArea {
   lastActivityAt: string | null;
 }
 
+export type WorkSessionSource = 'MANUAL' | 'TIMER' | 'CALENDAR_CONFIRMED';
+
+export interface WorkSession {
+  id: string;
+  user_id: string;
+  task_id: string;
+  life_area_id: string;
+  duration_minutes: number;
+  worked_at: string; // Formato YYYY-MM-DD
+  note: string | null;
+  source: WorkSessionSource;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 export interface DemoLifeArea {
   id: string;
   name: string;

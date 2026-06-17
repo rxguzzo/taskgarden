@@ -37,6 +37,24 @@ export default async function GreenhousePage() {
     console.error('Erro ao buscar áreas de vida para a estufa:', areasError);
   }
 
+  // Buscar todas as sessões de trabalho ativas do usuário para computar tempos reais
+  const { data: workSessions, error: sessionsError } = await supabase
+    .from('work_sessions')
+    .select('task_id, duration_minutes')
+    .eq('user_id', user.id)
+    .is('deleted_at', null);
+
+  if (sessionsError) {
+    console.error('Erro ao buscar sessões de trabalho para estufa:', sessionsError);
+  }
+
+  // Mapeia minutos por tarefa
+  const minutesByTask = new Map<string, number>();
+  (workSessions || []).forEach((s) => {
+    const prev = minutesByTask.get(s.task_id) || 0;
+    minutesByTask.set(s.task_id, prev + s.duration_minutes);
+  });
+
   const areaMap = new Map((areas || []).map((a) => [a.id, a.name]));
   const archivedTasks = tasks || [];
 
@@ -59,8 +77,11 @@ export default async function GreenhousePage() {
             const isCompleted = task.status === 'COMPLETED';
             const areaName = areaMap.get(task.life_area_id) || 'Área Arquivada/Desconhecida';
 
-            // Calcula tempo de dedicação estimado temporário para esta tarefa concluída (MVP M2)
-            const estimatedTime = isCompleted ? '45 min' : '0 min';
+            // Computa tempo dedicado real
+            const totalMinutes = minutesByTask.get(task.id) || 0;
+            const hoursDedicated = Math.floor(totalMinutes / 60);
+            const remainingMins = totalMinutes % 60;
+            const timeLabel = hoursDedicated > 0 ? `${hoursDedicated}h ${remainingMins}m` : `${remainingMins} min`;
 
             return (
               <Card
@@ -104,9 +125,9 @@ export default async function GreenhousePage() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-zinc-500 dark:text-zinc-400">Tempo Estimado:</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">Tempo Real Dedicado:</span>
                       <p className="font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        {estimatedTime}
+                        {timeLabel}
                       </p>
                     </div>
                   </div>
@@ -124,11 +145,11 @@ export default async function GreenhousePage() {
 
                 {/* Datas */}
                 <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <span className="text-[11px] text-zinc-400">
+                  <span className="text-[11px] text-zinc-450">
                     Prazo: {formatFriendlyDate(task.due_date)}
                   </span>
                   {isCompleted && task.completed_at && (
-                    <span className="text-[11px] text-zinc-400">
+                    <span className="text-[11px] text-zinc-450">
                       Colhida em: {formatFriendlyDate(task.completed_at)}
                     </span>
                   )}
