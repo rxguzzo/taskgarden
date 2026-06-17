@@ -239,6 +239,48 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
               </select>
             </div>
 
+            {/* Lista de Subtarefas da Tarefa em Foco */}
+            {(() => {
+              const currentTask = activeTasks.find(t => t.id === selectedTaskId);
+              const taskSubtasks = currentTask?.subtasks || [];
+              if (taskSubtasks.length === 0) return null;
+
+              const completedCount = taskSubtasks.filter(s => s.is_completed).length;
+              const totalCount = taskSubtasks.length;
+              const completionRate = Math.round((completedCount / totalCount) * 100);
+
+              return (
+                <div className="max-w-md mx-auto p-4 bg-zinc-50 dark:bg-zinc-950/40 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 text-left space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                      Subtarefas da Semente:
+                    </span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      {completedCount}/{totalCount} ({completionRate}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-200 dark:bg-zinc-850 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${completionRate}%` }}
+                    ></div>
+                  </div>
+                  <ul className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {taskSubtasks.map((sub) => (
+                      <li key={sub.id} className="flex items-start gap-2 text-xs text-zinc-650 dark:text-zinc-350">
+                        <span className={`text-[10px] select-none mt-0.5 ${sub.is_completed ? 'text-emerald-500 font-bold' : 'text-zinc-350 dark:text-zinc-650'}`}>
+                          {sub.is_completed ? '✓' : '○'}
+                        </span>
+                        <span className={sub.is_completed ? 'line-through text-zinc-400 dark:text-zinc-550' : ''}>
+                          {sub.title}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
             {/* Seleção de Presets de Tempo */}
             <div className="max-w-md mx-auto space-y-2 text-left">
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">

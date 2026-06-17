@@ -49,6 +49,17 @@ export default async function GardenPage() {
     console.error('Erro ao buscar tarefas:', tasksError);
   }
 
+  // Buscar todas as subtarefas ativas do usuário
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null);
+
+  if (subtasksError) {
+    console.error('Erro ao buscar subtarefas:', subtasksError);
+  }
+
   // Buscar todas as sessões de trabalho ativas do usuário
   const { data: workSessions, error: sessionsError } = await supabase
     .from('work_sessions')
@@ -64,7 +75,11 @@ export default async function GardenPage() {
 
   // Mapear áreas para summaries reais
   const summaries: LifeAreaSummary[] = (areas || []).map((area) => {
-    const areaTasks = (tasks || []).filter((t) => t.life_area_id === area.id);
+    // Anexa as subtarefas correspondentes a cada tarefa
+    const areaTasks = (tasks || []).map(t => ({
+      ...t,
+      subtasks: (subtasks || []).filter(s => s.task_id === t.id)
+    })).filter((t) => t.life_area_id === area.id);
     const areaSessions = allSessions.filter((s) => s.life_area_id === area.id);
 
     const activeTasks = areaTasks.filter((t) => t.status === 'ACTIVE');

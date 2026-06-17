@@ -85,9 +85,24 @@ export default async function FocusPage() {
     tasks: { title: string } | Array<{ title: string }> | null;
   }
 
+  // Buscar todas as subtarefas do usuário
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+
+  if (subtasksError) {
+    console.error('Erro ao buscar subtarefas para foco:', subtasksError);
+  }
+
   // Mapear arrays garantindo fallbacks vazios seguros
   const safeAreas: LifeArea[] = lifeAreas || [];
-  const safeTasks: Task[] = activeTasks || [];
+  const safeTasks: Task[] = (activeTasks || []).map(t => ({
+    ...t,
+    subtasks: (subtasks || []).filter(s => s.task_id === t.id)
+  }));
 
   // Tratando o tipo retornado pelo select com relacionamento do Supabase
   const rawSessions = (recentSessions || []) as unknown as RawSession[];
