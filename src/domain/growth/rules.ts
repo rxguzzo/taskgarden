@@ -1,4 +1,35 @@
-import { PlantStage, PlantVisualSize, HealthStatus, Task } from './types';
+import { PlantStage, PlantVisualSize, HealthStatus, Task, Subtask } from './types';
+
+/**
+ * Calcula o progresso de uma tarefa com base nas suas subtarefas ativas (não deletadas).
+ * Se não houver subtarefas, retorna o valor de tasks.progress.
+ */
+export function calculateTaskProgress(task: Task, subtasks?: Subtask[]): number {
+  if (!subtasks || subtasks.length === 0) {
+    return task.progress;
+  }
+  const activeSubtasks = subtasks.filter(s => s.deleted_at === null);
+  if (activeSubtasks.length === 0) {
+    return task.progress;
+  }
+  const completedCount = activeSubtasks.filter(s => s.is_completed).length;
+  return Math.round((completedCount / activeSubtasks.length) * 100);
+}
+
+/**
+ * Calcula o progresso médio das tarefas ativas (ACTIVE) de uma área de vida.
+ * Se não houver tarefas ativas, retorna null.
+ */
+export function getAreaProgress(tasks: Task[], areaId: string): number | null {
+  const activeTasks = tasks.filter(t => t.life_area_id === areaId && t.status === 'ACTIVE' && t.deleted_at === null);
+  if (activeTasks.length === 0) return null;
+
+  const sumProgress = activeTasks.reduce((sum, t) => {
+    const p = calculateTaskProgress(t, t.subtasks);
+    return sum + Math.max(0, Math.min(100, p));
+  }, 0);
+  return Math.round(sumProgress / activeTasks.length);
+}
 
 /**
  * Retorna o rótulo amigável em português para o estágio da planta.
@@ -78,17 +109,7 @@ export function getAreaPrunedTasksCount(tasks: Task[], areaId: string): number {
   return tasks.filter(t => t.life_area_id === areaId && t.status === 'PRUNED' && t.deleted_at === null).length;
 }
 
-/**
- * Calcula o progresso médio das tarefas ativas (ACTIVE) de uma área de vida.
- * Se não houver tarefas ativas, retorna null.
- */
-export function getAreaProgress(tasks: Task[], areaId: string): number | null {
-  const activeTasks = tasks.filter(t => t.life_area_id === areaId && t.status === 'ACTIVE' && t.deleted_at === null);
-  if (activeTasks.length === 0) return null;
 
-  const sumProgress = activeTasks.reduce((sum, t) => sum + Math.max(0, Math.min(100, t.progress)), 0);
-  return Math.round(sumProgress / activeTasks.length);
-}
 
 /**
  * Calcula o estágio de crescimento da árvore (PlantStage) baseado nos minutos reais de dedicação.

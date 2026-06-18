@@ -48,9 +48,21 @@ export default async function StatisticsPage() {
     console.error('Erro ao buscar sessões de trabalho para estatísticas:', sessionsError);
   }
 
+  // Buscar todas as subtarefas do usuário
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null);
+
+  if (subtasksError) {
+    console.error('Erro ao buscar subtarefas para estatísticas:', subtasksError);
+  }
+
   const activeAreas = areas || [];
   const allTasks = tasks || [];
   const allSessions = workSessions || [];
+  const allSubtasks = subtasks || [];
 
   const totalAreasActivas = activeAreas.length;
   const totalTasksActivas = allTasks.filter((t) => t.status === 'ACTIVE').length;
@@ -68,6 +80,11 @@ export default async function StatisticsPage() {
   const taxaDeColheita = totalTasksHistoricas > 0
     ? Math.round((totalTasksConcluidas / totalTasksHistoricas) * 100)
     : 0;
+
+  // Estatísticas de Subtarefas
+  const totalSubtasks = allSubtasks.length;
+  const completedSubtasks = allSubtasks.filter(s => s.is_completed).length;
+  const subtaskCompletionRate = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
 
   // Estatísticas e dedicação por Área de Vida
   const areaStats = activeAreas.map((area) => {
@@ -128,7 +145,7 @@ export default async function StatisticsPage() {
       </div>
 
       {/* Grid de Indicadores Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card variant="glass" className="p-6">
           <span className="text-xs font-semibold text-zinc-500 uppercase">Tempo Dedicado Real</span>
           <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{formattedHours}</p>
@@ -146,6 +163,14 @@ export default async function StatisticsPage() {
           <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{taxaDeColheita}%</p>
           <span className="text-[10px] text-zinc-400 mt-1 block">
             {totalTasksConcluidas} colheitas / {totalTasksPodadas} podas
+          </span>
+        </Card>
+
+        <Card variant="glass" className="p-6">
+          <span className="text-xs font-semibold text-zinc-500 uppercase">Subtarefas Concluídas</span>
+          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{subtaskCompletionRate}%</p>
+          <span className="text-[10px] text-zinc-400 mt-1 block">
+            {completedSubtasks} de {totalSubtasks} concluídas
           </span>
         </Card>
 

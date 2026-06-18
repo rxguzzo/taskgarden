@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
 import { Card } from '../../../components/ui/Card';
 import { formatFriendlyDate } from '../../../utils/date';
+import { Subtask } from '../../../domain/growth/types';
 
 export const revalidate = 0;
 
@@ -53,6 +54,25 @@ export default async function GreenhousePage() {
   (workSessions || []).forEach((s) => {
     const prev = minutesByTask.get(s.task_id) || 0;
     minutesByTask.set(s.task_id, prev + s.duration_minutes);
+  });
+
+  // Buscar todas as subtarefas do usuário
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+
+  if (subtasksError) {
+    console.error('Erro ao buscar subtarefas para a estufa:', subtasksError);
+  }
+
+  const subtaskMap = new Map<string, Subtask[]>();
+  (subtasks || []).forEach(s => {
+    const prev = subtaskMap.get(s.task_id) || [];
+    prev.push(s);
+    subtaskMap.set(s.task_id, prev);
   });
 
   const areaMap = new Map((areas || []).map((a) => [a.id, a.name]));
@@ -141,6 +161,31 @@ export default async function GreenhousePage() {
                       </p>
                     </div>
                   )}
+
+                  {/* Lista de subtarefas se houver */}
+                  {(() => {
+                    const taskSubtasks = subtaskMap.get(task.id) || [];
+                    if (taskSubtasks.length === 0) return null;
+                    return (
+                      <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-900 text-left space-y-2">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                          Subtarefas ({taskSubtasks.filter(s => s.is_completed).length}/{taskSubtasks.length}):
+                        </span>
+                        <ul className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                          {taskSubtasks.map((sub) => (
+                            <li key={sub.id} className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              <span className={`text-[10px] select-none mt-0.5 ${sub.is_completed ? 'text-emerald-500 font-bold' : 'text-zinc-350 dark:text-zinc-650'}`}>
+                                {sub.is_completed ? '✓' : '○'}
+                              </span>
+                              <span className={sub.is_completed ? 'line-through text-zinc-400 dark:text-zinc-500' : ''}>
+                                {sub.title}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Datas */}

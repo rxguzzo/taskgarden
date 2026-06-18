@@ -59,7 +59,23 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     console.error('Erro ao buscar tarefas da área:', tasksError);
   }
 
-  const areaTasks = tasks || [];
+  // Buscar subtarefas ativas desta área
+  const { data: subtasks, error: subtasksError } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('life_area_id', area.id)
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('sort_order', { ascending: true });
+
+  if (subtasksError) {
+    console.error('Erro ao buscar subtarefas da área:', subtasksError);
+  }
+
+  const areaTasks = (tasks || []).map(t => ({
+    ...t,
+    subtasks: (subtasks || []).filter(s => s.task_id === t.id)
+  }));
   const activeTasks = areaTasks.filter(t => t.status === 'ACTIVE');
 
   // Buscar sessões de trabalho associadas a esta área
@@ -191,7 +207,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
         </div>
 
         {/* Lado Direito: Listagem de Tarefas Real-time/Base de Dados */}
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 min-w-0 w-full">
           <AreaTasksList tasks={areaTasks} sessions={areaSessions} />
         </div>
       </div>

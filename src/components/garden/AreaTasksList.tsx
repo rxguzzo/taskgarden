@@ -5,6 +5,7 @@ import React, { useState, useActionState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { formatFriendlyDate } from '../../utils/date';
 import { Task, WorkSession } from '../../domain/growth/types';
+import { calculateTaskProgress } from '../../domain/growth/rules';
 import {
   completeTaskAction,
   deleteTaskAction,
@@ -15,6 +16,12 @@ import {
   createWorkSessionAction,
   deleteWorkSessionAction,
 } from '../../app/(dashboard)/work-sessions/actions';
+import {
+  createSubtaskAction,
+  updateSubtaskAction,
+  toggleSubtaskAction,
+  deleteSubtaskAction,
+} from '../../app/(dashboard)/subtasks/actions';
 
 interface AreaTasksListProps {
   tasks: Task[];
@@ -30,6 +37,55 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [pruningTask, setPruningTask] = useState<Task | null>(null);
   const [loggingTimeTask, setLoggingTimeTask] = useState<Task | null>(null);
+
+  // Estados locais para gerenciar subtarefas
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState<{ [taskId: string]: string }>({});
+
+  // Handlers para subtarefas
+  const handleCreateSubtask = async (taskId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    const title = newSubtaskTitle[taskId];
+    if (!title || !title.trim()) return;
+
+    const formData = new FormData();
+    formData.append('task_id', taskId);
+    formData.append('title', title.trim());
+
+    const res = await createSubtaskAction(null, formData);
+    if (res.success) {
+      setNewSubtaskTitle(prev => ({ ...prev, [taskId]: '' }));
+    } else {
+      alert(res.error || 'Erro ao criar subtarefa.');
+    }
+  };
+
+  const handleUpdateSubtask = async (subtaskId: string) => {
+    if (!editingSubtaskTitle || !editingSubtaskTitle.trim()) return;
+    const res = await updateSubtaskAction(subtaskId, editingSubtaskTitle.trim());
+    if (res.success) {
+      setEditingSubtaskId(null);
+    } else {
+      alert(res.error || 'Erro ao editar subtarefa.');
+    }
+  };
+
+  const handleToggleSubtask = async (subtaskId: string, isCompleted: boolean) => {
+    const res = await toggleSubtaskAction(subtaskId, isCompleted);
+    if (!res.success) {
+      alert(res.error || 'Erro ao alternar status da subtarefa.');
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    if (confirm('Tem certeza que deseja excluir esta subtarefa?')) {
+      const res = await deleteSubtaskAction(subtaskId);
+      if (!res.success) {
+        alert(res.error || 'Erro ao excluir subtarefa.');
+      }
+    }
+  };
 
   // useActionState for Modals
   const [editState, editFormAction, isEditPending] = useActionState(updateTaskAction, null);
@@ -110,92 +166,243 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
           </Card>
         ) : (
           <div className="space-y-3">
-            {activeTasks.map((task) => (
-              <Card key={task.id} variant="glass" className="p-4 hover:border-emerald-500/10 transition-all">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1 flex-1">
-                    <h3 className="font-bold text-sm text-zinc-800 dark:text-white">{task.title}</h3>
-                    {task.description && (
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xl">{task.description}</p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
-                      {getTaskDurationString(task.id) && (
-                        <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 border border-emerald-500/10">
-                          ⏱️ {getTaskDurationString(task.id)} dedicado
-                        </span>
-                      )}
-                      <span className="bg-zinc-100 dark:bg-zinc-950 px-2 py-0.5 rounded font-medium">
-                        Dificuldade: {task.difficulty}
-                      </span>
-                      <span className="bg-zinc-100 dark:bg-zinc-950 px-2 py-0.5 rounded font-medium">
-                        Prioridade: {task.priority}
-                      </span>
-                      {task.due_date && (
-                        <span>Prazo: {formatFriendlyDate(task.due_date)}</span>
-                      )}
-                    </div>
-                  </div>
+            {activeTasks.map((task) => {
+              const progress = calculateTaskProgress(task, task.subtasks);
+              const taskSubtasks = task.subtasks || [];
+              const activeSubtasks = taskSubtasks.filter(s => s.deleted_at === null);
+              const completedSubtasksCount = activeSubtasks.filter(s => s.is_completed).length;
+              const hasSubtasks = activeSubtasks.length > 0;
 
-                  {/* Progresso e Controles */}
-                  <div className="flex flex-wrap items-center justify-between md:justify-end gap-4">
-                    {/* Progresso */}
-                    <div className="flex items-center gap-3 text-right">
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{task.progress}%</span>
-                      <div className="w-24 bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
-                        <div
-                          className="bg-emerald-500 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${task.progress}%` }}
-                        ></div>
+              return (
+                <Card key={task.id} variant="glass" className="p-3 sm:p-4 hover:border-emerald-500/10 transition-all space-y-4 min-w-0">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <h3 className="font-bold text-sm text-zinc-800 dark:text-white break-words">{task.title}</h3>
+                      {task.description && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xl break-words">{task.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {getTaskDurationString(task.id) && (
+                          <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-0.5 border border-emerald-500/10 shrink-0">
+                            ⏱️ {getTaskDurationString(task.id)} dedicado
+                          </span>
+                        )}
+                        <span className="bg-zinc-100 dark:bg-zinc-950 px-2 py-0.5 rounded font-medium shrink-0">
+                          Dificuldade: {task.difficulty}
+                        </span>
+                        <span className="bg-zinc-100 dark:bg-zinc-950 px-2 py-0.5 rounded font-medium shrink-0">
+                          Prioridade: {task.priority}
+                        </span>
+                        {task.due_date && (
+                          <span className="shrink-0">Prazo: {formatFriendlyDate(task.due_date)}</span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Botões de Ação */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setLoggingTimeTask(task)}
-                        className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-zinc-200/40 dark:border-zinc-800/40"
-                        title="Registrar tempo dedicado"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                        <span>Tempo</span>
-                      </button>
-                      <button
-                        onClick={() => handleComplete(task.id)}
-                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
-                        title="Concluir e Colher"
-                      >
-                        Concluir
-                      </button>
-                      <button
-                        onClick={() => setEditingTask(task)}
-                        className="px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer"
-                        title="Editar Tarefa"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => setPruningTask(task)}
-                        className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-350 rounded-lg text-xs font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                        title="Podar Tarefa"
-                      >
-                        Podar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(task.id)}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                        title="Excluir semente"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                        </svg>
-                      </button>
+                    {/* Progresso e Controles */}
+                    <div className="flex flex-wrap items-center justify-between xl:justify-end gap-4 min-w-0 w-full xl:w-auto">
+                      {/* Progresso */}
+                      <div className="flex items-center gap-3 text-right shrink-0">
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{progress}%</span>
+                        <div className="w-24 bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {/* Botões de Ação */}
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-1 w-full sm:w-auto min-w-0">
+                        <button
+                          onClick={() => setLoggingTimeTask(task)}
+                          className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-zinc-200/40 dark:border-zinc-800/40 shrink-0"
+                          title="Registrar tempo dedicado"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </svg>
+                          <span>Tempo</span>
+                        </button>
+                        <button
+                          onClick={() => handleComplete(task.id)}
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                          title="Concluir e Colher"
+                        >
+                          Concluir
+                        </button>
+                        <button
+                          onClick={() => setEditingTask(task)}
+                          className="px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer shrink-0"
+                          title="Editar Tarefa"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => setPruningTask(task)}
+                          className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-350 rounded-lg text-xs font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                          title="Podar Tarefa"
+                        >
+                          Podar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(task.id)}
+                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title="Excluir semente"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+
+                  {/* Banner de Sugestão de Colheita (CTA) */}
+                  {progress === 100 && (
+                    <div className="bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse-slow">
+                      <div className="flex items-center gap-2 text-xs text-emerald-805 dark:text-emerald-300 font-semibold">
+                        <span>🎉</span>
+                        <span>Todas as subtarefas e etapas foram concluídas! Deseja colher esta semente e enviá-la para a Estufa?</span>
+                      </div>
+                      <button
+                        onClick={() => handleComplete(task.id)}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer w-full sm:w-auto text-center"
+                      >
+                        Colher Semente
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Interface de Subtarefas */}
+                  <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/60 w-full min-w-0 overflow-hidden">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                        Subtarefas {hasSubtasks ? `(${completedSubtasksCount}/${activeSubtasks.length})` : ''}
+                      </span>
+                    </div>
+
+                    {/* Lista de subtarefas */}
+                    {hasSubtasks && (
+                      <ul className="space-y-2 mb-3 w-full min-w-0">
+                        {activeSubtasks.map((sub) => {
+                          const isEditing = editingSubtaskId === sub.id;
+                          return (
+                            <li
+                              key={sub.id}
+                              className="flex items-center justify-between gap-3 text-xs bg-zinc-50/50 dark:bg-zinc-950/20 px-3 py-2 rounded-xl border border-zinc-200/40 dark:border-zinc-850/30 hover:bg-zinc-50 dark:hover:bg-zinc-950/40 transition-colors min-w-0 w-full"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={sub.is_completed}
+                                  onChange={() => handleToggleSubtask(sub.id, !sub.is_completed)}
+                                  className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-500 cursor-pointer shrink-0"
+                                />
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                                    <input
+                                      type="text"
+                                      value={editingSubtaskTitle}
+                                      onChange={(e) => setEditingSubtaskTitle(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleUpdateSubtask(sub.id);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingSubtaskId(null);
+                                        }
+                                      }}
+                                      className="flex-1 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 min-w-0"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateSubtask(sub.id)}
+                                      className="p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 shrink-0"
+                                      title="Salvar"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingSubtaskId(null)}
+                                      className="p-1 text-zinc-400 hover:text-zinc-650 shrink-0"
+                                      title="Cancelar"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onDoubleClick={() => {
+                                      setEditingSubtaskId(sub.id);
+                                      setEditingSubtaskTitle(sub.title);
+                                    }}
+                                    className={`truncate cursor-pointer select-none block flex-1 min-w-0 ${
+                                      sub.is_completed
+                                        ? 'line-through text-zinc-400 dark:text-zinc-550'
+                                        : 'text-zinc-700 dark:text-zinc-300 font-medium'
+                                    }`}
+                                    title="Clique duplo para editar"
+                                  >
+                                    {sub.title}
+                                  </span>
+                                )}
+                              </div>
+
+                              {!isEditing && (
+                                <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      setEditingSubtaskId(sub.id);
+                                      setEditingSubtaskTitle(sub.title);
+                                    }}
+                                    className="p-1 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors shrink-0"
+                                    title="Editar subtarefa"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSubtask(sub.id)}
+                                    className="p-1 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
+                                    title="Excluir subtarefa"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {/* Form para adicionar nova subtarefa */}
+                    <form onSubmit={(e) => handleCreateSubtask(task.id, e)} className="flex flex-col gap-2 sm:flex-row w-full min-w-0">
+                      <input
+                        type="text"
+                        placeholder="Adicionar nova subtarefa..."
+                        value={newSubtaskTitle[task.id] || ''}
+                        onChange={(e) => setNewSubtaskTitle(prev => ({ ...prev, [task.id]: e.target.value }))}
+                        className="flex-1 w-full min-w-0 px-3 py-1.5 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full sm:w-auto shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center"
+                      >
+                        Adicionar
+                      </button>
+                    </form>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -212,51 +419,79 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
           </Card>
         ) : (
           <div className="space-y-2">
-            {completedTasks.map((task) => (
-              <Card key={task.id} variant="solid" className="p-3 opacity-80 border-l-2 border-l-emerald-500 flex justify-between items-center gap-4">
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 line-through">
-                    {task.title}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                    {task.completed_at && (
-                      <span className="text-[10px] text-zinc-450 dark:text-zinc-550 block">
-                        Concluída em: {formatFriendlyDate(task.completed_at)}
+            {completedTasks.map((task) => {
+              const taskSubtasks = task.subtasks || [];
+              const activeSubtasks = taskSubtasks.filter(s => s.deleted_at === null);
+
+              return (
+                <Card key={task.id} variant="solid" className="p-3 opacity-80 border-l-2 border-l-emerald-500 flex flex-col gap-2 min-w-0">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 line-through break-words block">
+                        {task.title}
                       </span>
-                    )}
-                    {getTaskDurationString(task.id) && (
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                        • ⏱️ {getTaskDurationString(task.id)} dedicados
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        {task.completed_at && (
+                          <span className="text-[10px] text-zinc-450 dark:text-zinc-550 block shrink-0">
+                            Concluída em: {formatFriendlyDate(task.completed_at)}
+                          </span>
+                        )}
+                        {getTaskDurationString(task.id) && (
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 shrink-0">
+                            • ⏱️ {getTaskDurationString(task.id)} dedicados
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
+                      <button
+                        onClick={() => setLoggingTimeTask(task)}
+                        className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200/50 dark:border-zinc-800 text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                        title="Registrar tempo retroativo"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 text-zinc-500">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <span>Tempo</span>
+                      </button>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10 shrink-0">
+                        Colhida
                       </span>
-                    )}
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                        title="Excluir histórico"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setLoggingTimeTask(task)}
-                    className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200/50 dark:border-zinc-800 text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
-                    title="Registrar tempo retroativo"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 text-zinc-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    <span>Tempo</span>
-                  </button>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
-                    Colhida
-                  </span>
-                  <button
-                    onClick={() => handleDelete(task.id)}
-                    className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
-                    title="Excluir histórico"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                  </button>
-                </div>
-              </Card>
-            ))}
+
+                  {/* Subtarefas em modo leitura */}
+                  {activeSubtasks.length > 0 && (
+                    <div className="mt-1 pt-2 border-t border-zinc-200/50 dark:border-zinc-800/50 text-left">
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">
+                        Subtarefas:
+                      </span>
+                      <ul className="space-y-1">
+                        {activeSubtasks.map((sub) => (
+                          <li key={sub.id} className="flex items-center gap-2 text-xs text-zinc-500 min-w-0">
+                            <span className={`text-[10px] select-none shrink-0 ${sub.is_completed ? 'text-emerald-500 font-bold' : 'text-zinc-350 dark:text-zinc-650'}`}>
+                              {sub.is_completed ? '✓' : '○'}
+                            </span>
+                            <span className={`break-words flex-1 min-w-0 ${sub.is_completed ? 'line-through text-zinc-400 dark:text-zinc-550' : 'text-zinc-650 dark:text-zinc-350'}`}>
+                              {sub.title}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
@@ -273,36 +508,64 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
           </Card>
         ) : (
           <div className="space-y-2">
-            {prunedTasks.map((task) => (
-              <Card key={task.id} variant="solid" className="p-3 opacity-70 border-l-2 border-l-red-500 bg-red-500/5 flex justify-between items-start gap-4">
-                <div className="space-y-1 flex-1">
-                  <span className="text-sm font-medium text-zinc-650 dark:text-zinc-350">
-                    {task.title}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {getTaskDurationString(task.id) && (
-                      <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 block">
-                        ⏱️ {getTaskDurationString(task.id)} dedicados
+            {prunedTasks.map((task) => {
+              const taskSubtasks = task.subtasks || [];
+              const activeSubtasks = taskSubtasks.filter(s => s.deleted_at === null);
+
+              return (
+                <Card key={task.id} variant="solid" className="p-3 opacity-70 border-l-2 border-l-red-500 bg-red-500/5 flex flex-col gap-2 min-w-0">
+                  <div className="flex justify-between items-start gap-4 w-full min-w-0">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <span className="text-sm font-medium text-zinc-650 dark:text-zinc-350 break-words block">
+                        {task.title}
                       </span>
-                    )}
-                    {task.prune_reason && (
-                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 italic">
-                        Motivo: &quot;{task.prune_reason}&quot;
-                      </p>
-                    )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {getTaskDurationString(task.id) && (
+                          <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 block shrink-0">
+                            ⏱️ {getTaskDurationString(task.id)} dedicados
+                          </span>
+                        )}
+                        {task.prune_reason && (
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 italic break-words">
+                            Motivo: &quot;{task.prune_reason}&quot;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDelete(task.id)}
+                      className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                      title="Excluir histórico"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
+                    </button>
                   </div>
-                </div>
-                <button
-                  onClick={() => handleDelete(task.id)}
-                  className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
-                  title="Excluir histórico"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                  </svg>
-                </button>
-              </Card>
-            ))}
+
+                  {/* Subtarefas em modo leitura */}
+                  {activeSubtasks.length > 0 && (
+                    <div className="mt-1 pt-2 border-t border-zinc-200/50 dark:border-zinc-800/50 text-left">
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">
+                        Subtarefas:
+                      </span>
+                      <ul className="space-y-1">
+                        {activeSubtasks.map((sub) => (
+                          <li key={sub.id} className="flex items-center gap-2 text-xs text-zinc-500 min-w-0">
+                            <span className={`text-[10px] select-none shrink-0 ${sub.is_completed ? 'text-zinc-400 dark:text-zinc-550' : 'text-zinc-300 dark:text-zinc-700'}`}>
+                              {sub.is_completed ? '✓' : '○'}
+                            </span>
+                            <span className={`break-words flex-1 min-w-0 ${sub.is_completed ? 'line-through text-zinc-400 dark:text-zinc-550' : 'text-zinc-650 dark:text-zinc-350'}`}>
+                              {sub.title}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

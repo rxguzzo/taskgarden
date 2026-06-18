@@ -42,6 +42,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  subtasks?: Subtask[];
 }
 
 export interface LifeAreaSummary extends LifeArea {
@@ -67,6 +68,20 @@ export interface WorkSession {
   worked_at: string; // Formato YYYY-MM-DD
   note: string | null;
   source: WorkSessionSource;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface Subtask {
+  id: string;
+  user_id: string;
+  task_id: string;
+  life_area_id: string;
+  title: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
