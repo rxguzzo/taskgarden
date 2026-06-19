@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
@@ -54,7 +54,9 @@ export default async function PlantTaskPage() {
           </div>
         </div>
       ) : (
-        <CreateTaskForm areas={activeAreas} />
+        <Suspense fallback={<div className="animate-pulse h-96 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />}>
+          <CreateTaskForm areas={activeAreas} />
+        </Suspense>
       )}
     </div>
   );

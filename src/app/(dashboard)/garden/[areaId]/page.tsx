@@ -208,7 +208,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
 
         {/* Lado Direito: Listagem de Tarefas Real-time/Base de Dados */}
         <div className="lg:col-span-8 min-w-0 w-full">
-          <AreaTasksList tasks={areaTasks} sessions={areaSessions} />
+          <AreaTasksList tasks={areaTasks} sessions={areaSessions} area={area} />
         </div>
       </div>
     </div>

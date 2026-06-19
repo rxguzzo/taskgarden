@@ -147,6 +147,22 @@ export default async function GardenPage() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 max-w-sm">
             Plantando sua primeira área da vida, uma semente de árvore surgirá no seu jardim para representar seus objetivos.
           </p>
+          <div className="mt-6">
+            <CreateAreaDialog
+              trigger={
+                <button
+                  type="button"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                  aria-label="Plantar Primeira Área da Vida"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  <span>Plantar Primeira Área</span>
+                </button>
+              }
+            />
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">

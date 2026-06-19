@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
 import { Card } from '../../../components/ui/Card';
@@ -88,8 +89,24 @@ export default async function GreenhousePage() {
       </div>
 
       {archivedTasks.length === 0 ? (
-        <Card variant="solid" className="text-center py-12">
-          <p className="text-zinc-500 dark:text-zinc-400">Sua estufa está vazia. Comece a colher ou podar sementes no seu Jardim!</p>
+        <Card variant="glass" className="text-center py-12 max-w-md mx-auto space-y-4 border border-dashed border-zinc-200 dark:border-zinc-800">
+          <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+            🪴
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Estufa de Histórico Vazia</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
+              Sua estufa de histórico está vazia. Quando você concluir (colher) ou podar suas sementes no Jardim, elas serão preservadas aqui.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/garden"
+              className="inline-block px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
+            >
+              Cultivar Meu Jardim
+            </Link>
+          </div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

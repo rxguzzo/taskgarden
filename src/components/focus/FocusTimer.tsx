@@ -354,6 +354,7 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
                   onClick={handleStart}
                   className="w-16 h-16 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg shadow-emerald-950/10 hover:shadow-emerald-950/20 transition-all transform hover:scale-105 cursor-pointer"
                   title="Iniciar Cronômetro"
+                  aria-label="Iniciar cronômetro de foco"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 ml-0.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 0 1 0 1.971l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z" />
@@ -370,6 +371,7 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
                     disabled={isSubmitting}
                     className="w-12 h-12 flex items-center justify-center bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-full transition-all cursor-pointer border border-zinc-200/50 dark:border-zinc-800/50 disabled:opacity-50"
                     title="Cancelar Foco"
+                    aria-label="Cancelar sessão de foco"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -384,6 +386,7 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
                       disabled={isSubmitting}
                       className="w-16 h-16 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-lg shadow-amber-950/10 hover:shadow-amber-950/20 transition-all transform hover:scale-105 cursor-pointer disabled:opacity-50"
                       title="Pausar Foco"
+                      aria-label="Pausar cronômetro"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
@@ -396,6 +399,7 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
                       disabled={isSubmitting}
                       className="w-16 h-16 flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg shadow-emerald-950/10 hover:shadow-emerald-950/20 transition-all transform hover:scale-105 cursor-pointer disabled:opacity-50"
                       title="Retomar Foco"
+                      aria-label="Retomar cronômetro"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 ml-0.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 0 1 0 1.971l-11.54 6.347a1.125 1.125 0 0 1-1.667-.985V5.653Z" />
@@ -410,6 +414,7 @@ export function FocusTimer({ activeTasks, lifeAreas, recentSessions }: FocusTime
                     disabled={isSubmitting || elapsedSeconds < 60}
                     className="w-12 h-12 flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-full transition-all cursor-pointer border border-emerald-400/20 disabled:opacity-50 disabled:bg-zinc-100 disabled:text-zinc-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-650"
                     title={elapsedSeconds < 60 ? 'Foque pelo menos 1 minuto para concluir' : 'Concluir Foco'}
+                    aria-label="Concluir sessão de foco e regar plantas"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />

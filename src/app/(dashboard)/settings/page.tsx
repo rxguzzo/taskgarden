@@ -243,11 +243,13 @@ export default function SettingsPage() {
 
         <div className="pt-2">
           <button
+            type="button"
             onClick={async () => {
               if (confirm('Deseja realmente sair da sua conta?')) {
                 await signOutAction();
               }
             }}
+            aria-label="Sair da conta"
             className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-6 rounded-xl shadow-md transition-colors text-sm"
           >
             Sair da Conta
