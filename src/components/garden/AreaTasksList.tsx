@@ -2,9 +2,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useActionState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card } from '../ui/Card';
 import { formatFriendlyDate } from '../../utils/date';
-import { Task, WorkSession } from '../../domain/growth/types';
+import { Task, WorkSession, LifeArea } from '../../domain/growth/types';
 import { calculateTaskProgress } from '../../domain/growth/rules';
 import {
   completeTaskAction,
@@ -26,9 +27,10 @@ import {
 interface AreaTasksListProps {
   tasks: Task[];
   sessions: WorkSession[];
+  area?: LifeArea;
 }
 
-export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
+export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
   const activeTasks = tasks.filter((t) => t.status === 'ACTIVE');
   const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
   const prunedTasks = tasks.filter((t) => t.status === 'PRUNED');
@@ -42,6 +44,7 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState<{ [taskId: string]: string }>({});
+  const [isSubtaskActionPending, setIsSubtaskActionPending] = useState<{ [key: string]: boolean }>({});
 
   // Handlers para subtarefas
   const handleCreateSubtask = async (taskId: string, e: React.FormEvent) => {
@@ -49,40 +52,60 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
     const title = newSubtaskTitle[taskId];
     if (!title || !title.trim()) return;
 
-    const formData = new FormData();
-    formData.append('task_id', taskId);
-    formData.append('title', title.trim());
+    setIsSubtaskActionPending(prev => ({ ...prev, [taskId]: true }));
+    try {
+      const formData = new FormData();
+      formData.append('task_id', taskId);
+      formData.append('title', title.trim());
 
-    const res = await createSubtaskAction(null, formData);
-    if (res.success) {
-      setNewSubtaskTitle(prev => ({ ...prev, [taskId]: '' }));
-    } else {
-      alert(res.error || 'Erro ao criar subtarefa.');
+      const res = await createSubtaskAction(null, formData);
+      if (res.success) {
+        setNewSubtaskTitle(prev => ({ ...prev, [taskId]: '' }));
+      } else {
+        alert(res.error || 'Erro ao criar subtarefa.');
+      }
+    } finally {
+      setIsSubtaskActionPending(prev => ({ ...prev, [taskId]: false }));
     }
   };
 
   const handleUpdateSubtask = async (subtaskId: string) => {
     if (!editingSubtaskTitle || !editingSubtaskTitle.trim()) return;
-    const res = await updateSubtaskAction(subtaskId, editingSubtaskTitle.trim());
-    if (res.success) {
-      setEditingSubtaskId(null);
-    } else {
-      alert(res.error || 'Erro ao editar subtarefa.');
+    setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: true }));
+    try {
+      const res = await updateSubtaskAction(subtaskId, editingSubtaskTitle.trim());
+      if (res.success) {
+        setEditingSubtaskId(null);
+      } else {
+        alert(res.error || 'Erro ao editar subtarefa.');
+      }
+    } finally {
+      setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: false }));
     }
   };
 
   const handleToggleSubtask = async (subtaskId: string, isCompleted: boolean) => {
-    const res = await toggleSubtaskAction(subtaskId, isCompleted);
-    if (!res.success) {
-      alert(res.error || 'Erro ao alternar status da subtarefa.');
+    setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: true }));
+    try {
+      const res = await toggleSubtaskAction(subtaskId, isCompleted);
+      if (!res.success) {
+        alert(res.error || 'Erro ao alternar status da subtarefa.');
+      }
+    } finally {
+      setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: false }));
     }
   };
 
   const handleDeleteSubtask = async (subtaskId: string) => {
     if (confirm('Tem certeza que deseja excluir esta subtarefa?')) {
-      const res = await deleteSubtaskAction(subtaskId);
-      if (!res.success) {
-        alert(res.error || 'Erro ao excluir subtarefa.');
+      setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: true }));
+      try {
+        const res = await deleteSubtaskAction(subtaskId);
+        if (!res.success) {
+          alert(res.error || 'Erro ao excluir subtarefa.');
+        }
+      } finally {
+        setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: false }));
       }
     }
   };
@@ -161,8 +184,23 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
         </h2>
 
         {activeTasks.length === 0 ? (
-          <Card variant="solid" className="text-center py-8 text-sm text-zinc-500 dark:text-zinc-400">
-            Nenhuma tarefa ativa cadastrada nesta área de vida.
+          <Card variant="solid" className="text-center py-10 bg-white/40 dark:bg-zinc-900/40 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+            <div className="w-12 h-12 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+              🌱
+            </div>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Nenhuma semente ativa</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+              Você não possui nenhuma semente (tarefa) em cultivo nesta área de vida no momento.
+            </p>
+            <div className="mt-4">
+              <Link
+                href={`/tasks?areaId=${area?.id || ''}`}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition-colors inline-block"
+                aria-label="Plantar Primeira Semente"
+              >
+                Plantar Primeira Semente
+              </Link>
+            </div>
           </Card>
         ) : (
           <div className="space-y-3">
@@ -215,7 +253,9 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                       {/* Botões de Ação */}
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-1 w-full sm:w-auto min-w-0">
                         <button
+                          type="button"
                           onClick={() => setLoggingTimeTask(task)}
+                          aria-label="Registrar tempo dedicado"
                           className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-zinc-200/40 dark:border-zinc-800/40 shrink-0"
                           title="Registrar tempo dedicado"
                         >
@@ -225,28 +265,36 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                           <span>Tempo</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleComplete(task.id)}
+                          aria-label="Concluir e colher semente"
                           className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
                           title="Concluir e Colher"
                         >
                           Concluir
                         </button>
                         <button
+                          type="button"
                           onClick={() => setEditingTask(task)}
+                          aria-label="Editar tarefa"
                           className="px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer shrink-0"
                           title="Editar Tarefa"
                         >
                           Editar
                         </button>
                         <button
+                          type="button"
                           onClick={() => setPruningTask(task)}
+                          aria-label="Podar tarefa"
                           className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-350 rounded-lg text-xs font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
                           title="Podar Tarefa"
                         >
                           Podar
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDelete(task.id)}
+                          aria-label="Excluir semente"
                           className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
                           title="Excluir semente"
                         >
@@ -290,13 +338,15 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                           return (
                             <li
                               key={sub.id}
-                              className="flex items-center justify-between gap-3 text-xs bg-zinc-50/50 dark:bg-zinc-950/20 px-3 py-2 rounded-xl border border-zinc-200/40 dark:border-zinc-850/30 hover:bg-zinc-50 dark:hover:bg-zinc-950/40 transition-colors min-w-0 w-full"
+                              className={`flex items-center justify-between gap-3 text-xs bg-zinc-50/50 dark:bg-zinc-950/20 px-3 py-2 rounded-xl border border-zinc-200/40 dark:border-zinc-850/30 hover:bg-zinc-50 dark:hover:bg-zinc-950/40 transition-colors min-w-0 w-full ${isSubtaskActionPending[sub.id] ? 'opacity-55 pointer-events-none' : ''}`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <input
                                   type="checkbox"
                                   checked={sub.is_completed}
                                   onChange={() => handleToggleSubtask(sub.id, !sub.is_completed)}
+                                  disabled={!!isSubtaskActionPending[sub.id]}
+                                  aria-label={`Marcar subtarefa "${sub.title}" como concluída`}
                                   className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-500 cursor-pointer shrink-0"
                                 />
                                 {isEditing ? (
@@ -305,6 +355,8 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                                       type="text"
                                       value={editingSubtaskTitle}
                                       onChange={(e) => setEditingSubtaskTitle(e.target.value)}
+                                      disabled={!!isSubtaskActionPending[sub.id]}
+                                      aria-label="Editar título da subtarefa"
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                           handleUpdateSubtask(sub.id);
@@ -316,7 +368,10 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                                       autoFocus
                                     />
                                     <button
+                                      type="button"
                                       onClick={() => handleUpdateSubtask(sub.id)}
+                                      disabled={!!isSubtaskActionPending[sub.id]}
+                                      aria-label="Salvar alteração da subtarefa"
                                       className="p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 shrink-0"
                                       title="Salvar"
                                     >
@@ -325,7 +380,10 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                                       </svg>
                                     </button>
                                     <button
+                                      type="button"
                                       onClick={() => setEditingSubtaskId(null)}
+                                      disabled={!!isSubtaskActionPending[sub.id]}
+                                      aria-label="Cancelar alteração da subtarefa"
                                       className="p-1 text-zinc-400 hover:text-zinc-650 shrink-0"
                                       title="Cancelar"
                                     >
@@ -337,8 +395,10 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                                 ) : (
                                   <span
                                     onDoubleClick={() => {
-                                      setEditingSubtaskId(sub.id);
-                                      setEditingSubtaskTitle(sub.title);
+                                      if (!isSubtaskActionPending[sub.id]) {
+                                        setEditingSubtaskId(sub.id);
+                                        setEditingSubtaskTitle(sub.title);
+                                      }
                                     }}
                                     className={`truncate cursor-pointer select-none block flex-1 min-w-0 ${
                                       sub.is_completed
@@ -355,10 +415,13 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                               {!isEditing && (
                                 <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity shrink-0">
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setEditingSubtaskId(sub.id);
                                       setEditingSubtaskTitle(sub.title);
                                     }}
+                                    disabled={!!isSubtaskActionPending[sub.id]}
+                                    aria-label="Editar subtarefa"
                                     className="p-1 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 transition-colors shrink-0"
                                     title="Editar subtarefa"
                                   >
@@ -367,7 +430,10 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                                     </svg>
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() => handleDeleteSubtask(sub.id)}
+                                    disabled={!!isSubtaskActionPending[sub.id]}
+                                    aria-label="Excluir subtarefa"
                                     className="p-1 text-zinc-400 hover:text-red-500 transition-colors shrink-0"
                                     title="Excluir subtarefa"
                                   >
@@ -390,13 +456,16 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                         placeholder="Adicionar nova subtarefa..."
                         value={newSubtaskTitle[task.id] || ''}
                         onChange={(e) => setNewSubtaskTitle(prev => ({ ...prev, [task.id]: e.target.value }))}
-                        className="flex-1 w-full min-w-0 px-3 py-1.5 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        disabled={!!isSubtaskActionPending[task.id]}
+                        aria-label="Nova subtarefa"
+                        className="flex-1 w-full min-w-0 px-3 py-1.5 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-55"
                       />
                       <button
                         type="submit"
-                        className="w-full sm:w-auto shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center"
+                        disabled={!!isSubtaskActionPending[task.id] || !(newSubtaskTitle[task.id] || '').trim()}
+                        className="w-full sm:w-auto shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center disabled:opacity-50"
                       >
-                        Adicionar
+                        {isSubtaskActionPending[task.id] ? 'Adicionando...' : 'Adicionar'}
                       </button>
                     </form>
                   </div>
@@ -445,7 +514,9 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto min-w-0">
                       <button
+                        type="button"
                         onClick={() => setLoggingTimeTask(task)}
+                        aria-label="Registrar tempo retroativo"
                         className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200/50 dark:border-zinc-800 text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                         title="Registrar tempo retroativo"
                       >
@@ -458,7 +529,9 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                         Colhida
                       </span>
                       <button
+                        type="button"
                         onClick={() => handleDelete(task.id)}
+                        aria-label="Excluir histórico"
                         className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
                         title="Excluir histórico"
                       >
@@ -533,7 +606,9 @@ export function AreaTasksList({ tasks, sessions }: AreaTasksListProps) {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleDelete(task.id)}
+                      aria-label="Excluir histórico"
                       className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
                       title="Excluir histórico"
                     >

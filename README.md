@@ -4,6 +4,21 @@ O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface 
 
 ---
 
+## 📋 Status de Desenvolvimento dos Módulos
+
+O projeto foi dividido em módulos estruturados e incrementais de desenvolvimento:
+
+| Módulo | Funcionalidades Principais | Status |
+| :--- | :--- | :--- |
+| **M1 — Auth & Perfis** | Autenticação e cadastro via Supabase SSR, perfis de usuário com timezone. | Concluído ✅ |
+| **M2 — Áreas & Tarefas** | Criação de Áreas da Vida e Tarefas reais (sementes) vinculadas, listagem dinâmica. | Concluído ✅ |
+| **M3 — Sessões & Tempo** | Registro de sessões de trabalho real-time, dedicação em minutos e ganho de esforço. | Concluído ✅ |
+| **M4 — Foco & Pomodoro** | Timer Pomodoro integrado com bloqueios, metas de sessão e registro de tempo. | Concluído ✅ |
+| **M5 — Subtarefas & Progresso** | Subtarefas com controle individual, progresso calculado automaticamente de 0% a 100%. | Concluído ✅ |
+| **M6 — Polish, UX & A11y** | Estados vazios inteligentes, feedback de loading, acessibilidade (aria-labels) e portfólio. | Concluído ✅ |
+
+---
+
 ## 🌿 Conceito de Cultivo
 
 Neste projeto, a gamificação é orientada pela seguinte estrutura conceitual:
@@ -45,12 +60,99 @@ Caso deseje preparar a conexão do seu banco de dados definitivo futuramente:
 
 *Nota: Se o arquivo `.env.local` estiver ausente ou vazio, a aplicação continuará em modo de demonstração local e não tentará realizar conexões com a API.*
 
-### 4. Rodar o Servidor de Desenvolvimento
-Inicie o servidor local:
-```bash
-npm run dev
+---
+
+## 🗄️ Arquitetura do Banco de Dados & Supabase
+
+### Modelo Entidade-Relacionamento (ER)
+
+O banco de dados é modelado com base nas relações entre o perfil do usuário, suas áreas de cultivo (Áreas da Vida), as sementes (Tarefas) e subtarefas, além do histórico de esforço dedicado:
+
+```mermaid
+erDiagram
+    profiles {
+        uuid id PK
+        text display_name
+        text avatar_url
+        text timezone
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    life_areas {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text color
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    tasks {
+        uuid id PK
+        uuid user_id FK
+        uuid life_area_id FK
+        text title
+        text description
+        text difficulty
+        text priority
+        text status
+        timestamptz due_date
+        timestamptz completed_at
+        text prune_reason
+        integer progress
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    subtasks {
+        uuid id PK
+        uuid user_id FK
+        uuid life_area_id FK
+        uuid task_id FK
+        text title
+        boolean is_completed
+        integer sort_order
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    work_sessions {
+        uuid id PK
+        uuid user_id FK
+        uuid life_area_id FK
+        uuid task_id FK
+        integer duration_minutes
+        text note
+        timestamptz worked_at
+        timestamptz deleted_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    profiles ||--o{ life_areas : "cultiva"
+    profiles ||--o{ tasks : "gerencia"
+    profiles ||--o{ subtasks : "executa"
+    profiles ||--o{ work_sessions : "dedica"
+    life_areas ||--o{ tasks : "agrupa"
+    tasks ||--o{ subtasks : "contem"
+    tasks ||--o{ work_sessions : "recebe"
 ```
-Acesse a aplicação no navegador em [http://localhost:3000](http://localhost:3000).
+
+### Provisionamento & RLS (Row Level Security)
+
+As políticas de RLS, permissões (grants/revokes) e triggers de atualização automática do banco de dados no Supabase Cloud **são provisionadas integralmente pelas migrations do projeto**, localizadas em `supabase/migrations/`.
+
+Para aplicar e atualizar a infraestrutura de banco de dados, você deve utilizar a Supabase CLI:
+```bash
+# Vincular ao projeto Supabase remoto
+npx supabase link --project-ref <seu-project-ref>
+
+# Enviar e aplicar as migrations locais
+npx supabase db push
+```
+
+> [!IMPORTANT]
+> Nunca altere ou configure as políticas RLS manualmente pelo console do Supabase. A infraestrutura do banco de dados é declarativa e orientada pelas migrações versionadas no repositório.
 
 ---
 

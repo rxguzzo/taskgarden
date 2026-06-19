@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
 import { Card } from '../../../components/ui/Card';
@@ -144,16 +145,38 @@ export default async function StatisticsPage() {
         <p className="text-zinc-600 dark:text-zinc-400 mt-1">Monitore seu foco, constância e o crescimento do seu jardim</p>
       </div>
 
-      {/* Grid de Indicadores Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card variant="glass" className="p-6">
-          <span className="text-xs font-semibold text-zinc-500 uppercase">Tempo Dedicado Real</span>
-          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{formattedHours}</p>
-          <span className="text-[10px] text-zinc-400 mt-1 block">Soma real de todas as sessões registradas</span>
+      {totalAreasActivas === 0 ? (
+        <Card variant="glass" className="text-center py-16 max-w-md mx-auto space-y-4 border border-dashed border-zinc-200 dark:border-zinc-800">
+          <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+            📊
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">Sem Dados Estatísticos</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
+              Você ainda não plantou nenhuma área da vida. Crie uma área no Jardim e registre sessões de dedicação para começar a visualizar suas métricas de progresso.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/garden"
+              className="inline-block px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"
+            >
+              Começar a Plantar
+            </Link>
+          </div>
         </Card>
-        
-        <Card variant="glass" className="p-6">
-          <span className="text-xs font-semibold text-zinc-500 uppercase">Áreas da Vida Ativas</span>
+      ) : (
+        <>
+          {/* Grid de Indicadores Principais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card variant="glass" className="p-6">
+              <span className="text-xs font-semibold text-zinc-500 uppercase">Tempo Dedicado Real</span>
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{formattedHours}</p>
+              <span className="text-[10px] text-zinc-400 mt-1 block">Soma real de todas as sessões registradas</span>
+            </Card>
+
+            <Card variant="glass" className="p-6">
+              <span className="text-xs font-semibold text-zinc-500 uppercase">Áreas da Vida Ativas</span>
           <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">{totalAreasActivas}</p>
           <span className="text-[10px] text-zinc-400 mt-1 block">Árvores plantadas no Jardim</span>
         </Card>
@@ -375,6 +398,8 @@ export default async function StatisticsPage() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -4,7 +4,11 @@
 import React, { useState, useActionState, useEffect } from 'react';
 import { createLifeAreaAction } from '../../app/(dashboard)/garden/actions';
 
-export function CreateAreaDialog() {
+interface CreateAreaDialogProps {
+  trigger?: React.ReactNode;
+}
+
+export function CreateAreaDialog({ trigger }: CreateAreaDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(createLifeAreaAction, null);
 
@@ -26,16 +30,23 @@ export function CreateAreaDialog() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        <span>Nova área</span>
-      </button>
+      {trigger ? (
+        <span onClick={() => setIsOpen(true)} className="cursor-pointer" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsOpen(true); }} aria-label="Plantar Nova Área">
+          {trigger}
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+          aria-label="Criar Nova Área"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          <span>Nova área</span>
+        </button>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">

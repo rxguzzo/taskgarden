@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useActionState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createTaskAction } from '../../app/(dashboard)/tasks/actions';
 import { LifeArea } from '../../domain/growth/types';
 import { Card } from '../ui/Card';
@@ -10,6 +11,8 @@ interface CreateTaskFormProps {
 }
 
 export function CreateTaskForm({ areas }: CreateTaskFormProps) {
+  const searchParams = useSearchParams();
+  const defaultAreaId = searchParams.get('areaId') || '';
   const [state, formAction, isPending] = useActionState(createTaskAction, null);
 
   // Limpa os campos de texto se salvar com sucesso
@@ -101,6 +104,8 @@ export function CreateTaskForm({ areas }: CreateTaskFormProps) {
               id="life_area_id"
               name="life_area_id"
               required
+              key={defaultAreaId}
+              defaultValue={defaultAreaId}
               disabled={isPending}
               className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all"
             >
