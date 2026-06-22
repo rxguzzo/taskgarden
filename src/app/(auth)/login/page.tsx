@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getBrowserClient } from '@/services/supabase/browser';
 import { Card } from '@/components/ui/Card';
 import { getSafeRedirectUrl } from '@/utils/redirect';
+import { TreeLoading } from '@/components/ui/TreeLoading';
 
 export default function LoginPage() {
   return (
@@ -172,9 +173,13 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading || !email || !password}
-          className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-colors text-sm"
+          className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-colors text-sm flex items-center justify-center min-h-[48px]"
         >
-          {loading ? 'Entrando...' : 'Entrar no Jardim'}
+          {loading ? (
+            <TreeLoading label="Entrando no jardim..." size="sm" />
+          ) : (
+            'Entrar no Jardim'
+          )}
         </button>
       </form>
 
