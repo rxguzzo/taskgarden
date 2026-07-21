@@ -2,6 +2,8 @@
 
 O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface gamificada baseada no crescimento de plantas.
 
+🔗 **Link de Produção:** [https://taskgarden-rxguzzo.vercel.app](https://taskgarden-rxguzzo.vercel.app) *(substitua pela sua URL final da Vercel)*
+
 ---
 
 ## 📋 Status de Desenvolvimento dos Módulos
@@ -16,6 +18,7 @@ O projeto foi dividido em módulos estruturados e incrementais de desenvolviment
 | **M4 — Foco & Pomodoro** | Timer Pomodoro integrado com bloqueios, metas de sessão e registro de tempo. | Concluído ✅ |
 | **M5 — Subtarefas & Progresso** | Subtarefas com controle individual, progresso calculado automaticamente de 0% a 100%. | Concluído ✅ |
 | **M6 — Polish, UX & A11y** | Estados vazios inteligentes, feedback de loading, acessibilidade (aria-labels) e portfólio. | Concluído ✅ |
+| **M7 — Deploy & Produção** | Deploy na Vercel, variáveis de ambiente de produção e configuração Supabase Auth redirects. | Concluído ✅ |
 
 ---
 
@@ -153,6 +156,27 @@ npx supabase db push
 
 > [!IMPORTANT]
 > Nunca altere ou configure as políticas RLS manualmente pelo console do Supabase. A infraestrutura do banco de dados é declarativa e orientada pelas migrações versionadas no repositório.
+
+---
+
+## ☁️ Guia de Deploy em Produção (Vercel & Supabase)
+
+### 1. Configurando Variáveis de Ambiente na Vercel
+Ao importar o repositório `rxguzzo/taskgarden` no painel da Vercel, configure as seguintes variáveis públicas em **Environment Variables**:
+* `NEXT_PUBLIC_SUPABASE_URL`: `https://seu-projeto-id.supabase.co`
+* `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: `sua-chave-anonima-publica`
+
+> [!CAUTION]
+> **Aviso de Segurança:** Nunca utilize a chave `service_role` ou strings de conexão direta com senha do banco de dados nas variáveis de ambiente expostas no frontend. O cliente Supabase deve usar apenas as chaves públicas configuradas acima.
+
+### 2. Configurações de URL no Supabase Auth
+No painel do Supabase, vá em **Authentication** $\rightarrow$ **URL Configuration** e configure:
+* **Site URL**: `https://sua-url-final.vercel.app` (o domínio de produção atribuído pela Vercel)
+* **Redirect URLs** (Adicione as seguintes URLs autorizadas na lista):
+  * `https://sua-url-final.vercel.app/auth/callback`
+  * `https://sua-url-final.vercel.app/redefinir-senha`
+  * `http://localhost:3000/auth/callback` *(preserva suporte ao desenvolvimento local)*
+  * `http://localhost:3000/redefinir-senha` *(preserva suporte ao desenvolvimento local)*
 
 ---
 

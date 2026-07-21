@@ -58,11 +58,11 @@ export async function createTaskAction(
     // Validação de data
     let cleanDueDate: string | null = null;
     if (dueDateInput && dueDateInput.trim()) {
-      const parsedDate = new Date(dueDateInput.trim());
-      if (isNaN(parsedDate.getTime())) {
+      const trimmed = dueDateInput.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         return { success: false, error: 'A data informada é inválida.' };
       }
-      cleanDueDate = parsedDate.toISOString();
+      cleanDueDate = trimmed;
     }
 
     // 2. Conexão e Validação de Sessão
@@ -173,11 +173,11 @@ export async function updateTaskAction(
 
     let cleanDueDate: string | null = null;
     if (dueDateInput && dueDateInput.trim()) {
-      const parsedDate = new Date(dueDateInput.trim());
-      if (isNaN(parsedDate.getTime())) {
+      const trimmed = dueDateInput.trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         return { success: false, error: 'Prazo inválido.' };
       }
-      cleanDueDate = parsedDate.toISOString();
+      cleanDueDate = trimmed;
     }
 
     const supabase = await getServerClient();

@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navigationItems, NavigationItem } from '../../config/navigation';
+import { TreeLoading } from '../ui/TreeLoading';
 
 export const RenderNavigationIcon = ({ type, className = 'w-5 h-5' }: { type: string; className?: string }) => {
   switch (type) {
@@ -60,6 +61,7 @@ export interface ProfileData {
 
 export const Sidebar: React.FC<{ profile: ProfileData }> = ({ profile }) => {
   const pathname = usePathname();
+  const [isSignOutPending, setIsSignOutPending] = useState(false);
 
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen bg-emerald-950 text-emerald-100 border-r border-emerald-900 sticky top-0">
@@ -117,17 +119,29 @@ export const Sidebar: React.FC<{ profile: ProfileData }> = ({ profile }) => {
           </div>
           <button
             type="button"
+            disabled={isSignOutPending}
             onClick={async () => {
-              const { signOutAction } = await import('@/app/(dashboard)/settings/actions');
-              await signOutAction();
+              if (isSignOutPending) return;
+              setIsSignOutPending(true);
+              try {
+                const { signOutAction } = await import('@/app/(dashboard)/settings/actions');
+                await signOutAction();
+              } catch (err) {
+                console.error('Erro ao deslogar:', err);
+                setIsSignOutPending(false);
+              }
             }}
-            className="p-1.5 rounded-lg hover:bg-emerald-900 text-emerald-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover:bg-emerald-900 text-emerald-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[32px] h-[32px]"
             title="Sair do Sistema"
             aria-label="Sair do sistema"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-            </svg>
+            {isSignOutPending ? (
+              <TreeLoading size="sm" />
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

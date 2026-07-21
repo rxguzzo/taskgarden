@@ -4,7 +4,8 @@
 import React, { useState, useActionState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card } from '../ui/Card';
-import { formatFriendlyDate } from '../../utils/date';
+import { formatFriendlyDate, getTodayDateOnly } from '../../utils/date';
+import { TreeLoading } from '../ui/TreeLoading';
 import { Task, WorkSession, LifeArea } from '../../domain/growth/types';
 import { calculateTaskProgress } from '../../domain/growth/rules';
 import {
@@ -134,19 +135,35 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
     }
   }, [logTimeState]);
 
+  // Estados de pending para ações de tarefas (Conclusão e Deleção)
+  const [pendingCompleteTaskId, setPendingCompleteTaskId] = useState<string | null>(null);
+  const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState<string | null>(null);
+
   // Handler Actions
   const handleComplete = async (taskId: string) => {
-    const res = await completeTaskAction(taskId);
-    if (!res.success) {
-      alert(res.error || 'Erro ao concluir tarefa.');
+    if (pendingCompleteTaskId) return;
+    setPendingCompleteTaskId(taskId);
+    try {
+      const res = await completeTaskAction(taskId);
+      if (!res.success) {
+        alert(res.error || 'Erro ao concluir tarefa.');
+      }
+    } finally {
+      setPendingCompleteTaskId(null);
     }
   };
 
   const handleDelete = async (taskId: string) => {
+    if (pendingDeleteTaskId) return;
     if (confirm('Tem certeza que deseja excluir esta semente? Esta ação é irreversível.')) {
-      const res = await deleteTaskAction(taskId);
-      if (!res.success) {
-        alert(res.error || 'Erro ao excluir tarefa.');
+      setPendingDeleteTaskId(taskId);
+      try {
+        const res = await deleteTaskAction(taskId);
+        if (!res.success) {
+          alert(res.error || 'Erro ao excluir tarefa.');
+        }
+      } finally {
+        setPendingDeleteTaskId(null);
       }
     }
   };
@@ -211,8 +228,10 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
               const completedSubtasksCount = activeSubtasks.filter(s => s.is_completed).length;
               const hasSubtasks = activeSubtasks.length > 0;
 
+              const isTaskActionPending = pendingCompleteTaskId === task.id || pendingDeleteTaskId === task.id;
+
               return (
-                <Card key={task.id} variant="glass" className="p-3 sm:p-4 hover:border-emerald-500/10 transition-all space-y-4 min-w-0">
+                <Card key={task.id} variant="glass" className={`p-3 sm:p-4 hover:border-emerald-500/10 transition-all space-y-4 min-w-0 relative ${isTaskActionPending ? 'opacity-60 pointer-events-none' : ''}`}>
                   <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
                       <h3 className="font-bold text-sm text-zinc-800 dark:text-white break-words">{task.title}</h3>
@@ -255,8 +274,9 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                         <button
                           type="button"
                           onClick={() => setLoggingTimeTask(task)}
+                          disabled={isTaskActionPending}
                           aria-label="Registrar tempo dedicado"
-                          className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-zinc-200/40 dark:border-zinc-800/40 shrink-0"
+                          className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 border border-zinc-200/40 dark:border-zinc-800/40 shrink-0 disabled:opacity-50"
                           title="Registrar tempo dedicado"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
@@ -267,17 +287,23 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                         <button
                           type="button"
                           onClick={() => handleComplete(task.id)}
+                          disabled={isTaskActionPending}
                           aria-label="Concluir e colher semente"
-                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer shrink-0"
+                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center min-w-[70px]"
                           title="Concluir e Colher"
                         >
-                          Concluir
+                          {pendingCompleteTaskId === task.id ? (
+                            <TreeLoading label="Colhendo..." size="sm" />
+                          ) : (
+                            'Concluir'
+                          )}
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingTask(task)}
+                          disabled={isTaskActionPending}
                           aria-label="Editar tarefa"
-                          className="px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer shrink-0"
+                          className="px-2 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                           title="Editar Tarefa"
                         >
                           Editar
@@ -285,8 +311,9 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                         <button
                           type="button"
                           onClick={() => setPruningTask(task)}
+                          disabled={isTaskActionPending}
                           aria-label="Podar tarefa"
-                          className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-350 rounded-lg text-xs font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                          className="px-2 py-1.5 bg-zinc-100 dark:bg-zinc-900 text-zinc-650 dark:text-zinc-350 rounded-lg text-xs font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
                           title="Podar Tarefa"
                         >
                           Podar
@@ -294,13 +321,18 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                         <button
                           type="button"
                           onClick={() => handleDelete(task.id)}
+                          disabled={isTaskActionPending}
                           aria-label="Excluir semente"
-                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                          className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center"
                           title="Excluir semente"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                          </svg>
+                          {pendingDeleteTaskId === task.id ? (
+                            <span className="animate-spin text-zinc-400">⏳</span>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -315,9 +347,14 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                       </div>
                       <button
                         onClick={() => handleComplete(task.id)}
-                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer w-full sm:w-auto text-center"
+                        disabled={isTaskActionPending}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors cursor-pointer w-full sm:w-auto text-center disabled:opacity-50 flex items-center justify-center min-w-[110px]"
                       >
-                        Colher Semente
+                        {pendingCompleteTaskId === task.id ? (
+                          <TreeLoading label="Colhendo..." size="sm" />
+                        ) : (
+                          'Colher Semente'
+                        )}
                       </button>
                     </div>
                   )}
@@ -491,9 +528,10 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
             {completedTasks.map((task) => {
               const taskSubtasks = task.subtasks || [];
               const activeSubtasks = taskSubtasks.filter(s => s.deleted_at === null);
+              const isTaskActionPending = pendingDeleteTaskId === task.id;
 
               return (
-                <Card key={task.id} variant="solid" className="p-3 opacity-80 border-l-2 border-l-emerald-500 flex flex-col gap-2 min-w-0">
+                <Card key={task.id} variant="solid" className={`p-3 opacity-80 border-l-2 border-l-emerald-500 flex flex-col gap-2 min-w-0 relative ${isTaskActionPending ? 'opacity-65 pointer-events-none' : ''}`}>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 line-through break-words block">
@@ -516,12 +554,13 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                       <button
                         type="button"
                         onClick={() => setLoggingTimeTask(task)}
+                        disabled={isTaskActionPending}
                         aria-label="Registrar tempo retroativo"
-                        className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200/50 dark:border-zinc-800 text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                        className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200/50 dark:border-zinc-800 text-[10px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shrink-0 disabled:opacity-50"
                         title="Registrar tempo retroativo"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 text-zinc-500">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0a9 9 0 0 1 18 0Z" />
                         </svg>
                         <span>Tempo</span>
                       </button>
@@ -531,13 +570,18 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                       <button
                         type="button"
                         onClick={() => handleDelete(task.id)}
+                        disabled={isTaskActionPending}
                         aria-label="Excluir histórico"
-                        className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                        className="p-1 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center"
                         title="Excluir histórico"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                        </svg>
+                        {pendingDeleteTaskId === task.id ? (
+                          <span className="animate-spin text-zinc-400 text-xs">⏳</span>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                          </svg>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -982,7 +1026,7 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                   name="worked_at"
                   type="date"
                   required
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  defaultValue={getTodayDateOnly()}
                   disabled={isLogTimePending}
                   className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />

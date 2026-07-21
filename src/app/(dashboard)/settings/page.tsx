@@ -6,12 +6,14 @@ import { getSupabaseConfig } from '../../../services/supabase/config';
 import { getBrowserClient } from '../../../services/supabase/browser';
 import { updateProfileAction, signOutAction } from './actions';
 import { ProfileData } from '../../../components/layout/Sidebar';
+import { TreeLoading } from '../../../components/ui/TreeLoading';
 
 export default function SettingsPage() {
   const supabaseConfig = getSupabaseConfig();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [email, setEmail] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [isSignOutPending, setIsSignOutPending] = useState(false);
 
   // Carregar dados de perfil no cliente para preencher o formulário
   useEffect(() => {
@@ -244,15 +246,27 @@ export default function SettingsPage() {
         <div className="pt-2">
           <button
             type="button"
+            disabled={isSignOutPending}
             onClick={async () => {
+              if (isSignOutPending) return;
               if (confirm('Deseja realmente sair da sua conta?')) {
-                await signOutAction();
+                setIsSignOutPending(true);
+                try {
+                  await signOutAction();
+                } catch (err) {
+                  console.error('Erro ao deslogar:', err);
+                  setIsSignOutPending(false);
+                }
               }
             }}
             aria-label="Sair da conta"
-            className="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-6 rounded-xl shadow-md transition-colors text-sm"
+            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-xl shadow-md transition-colors text-sm flex items-center justify-center min-h-[44px]"
           >
-            Sair da Conta
+            {isSignOutPending ? (
+              <TreeLoading label="Saindo..." size="sm" />
+            ) : (
+              'Sair da Conta'
+            )}
           </button>
         </div>
       </Card>
