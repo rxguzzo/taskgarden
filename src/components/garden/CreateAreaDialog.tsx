@@ -3,6 +3,7 @@
 
 import React, { useState, useActionState, useEffect } from 'react';
 import { createLifeAreaAction } from '../../app/(dashboard)/garden/actions';
+import { TreeLoading } from '../ui/TreeLoading';
 
 interface CreateAreaDialogProps {
   trigger?: React.ReactNode;
@@ -74,22 +75,7 @@ export function CreateAreaDialog({ trigger }: CreateAreaDialogProps) {
               )}
 
               {isPending ? (
-                /* Animação de Jardinagem */
-                <div className="flex flex-col items-center justify-center gap-4 py-8 animate-fade-in">
-                  <div className="relative h-24 w-24">
-                    {/* Semente descendo */}
-                    <div className="absolute left-1/2 top-2 h-3 w-3 -translate-x-1/2 rounded-full bg-amber-700 animate-seed-drop" />
-                    {/* Solo */}
-                    <div className="absolute bottom-4 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-emerald-900/20 dark:bg-emerald-400/20" />
-                    {/* Broto subindo */}
-                    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-4xl animate-sprout-grow">
-                      🌱
-                    </div>
-                  </div>
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 text-center animate-pulse">
-                    Plantando sua nova área...
-                  </p>
-                </div>
+                <TreeLoading label="Plantando sua nova área..." variant="card" />
               ) : (
                 /* Campos do Formulário */
                 <>

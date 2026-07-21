@@ -4,71 +4,138 @@ type TreeLoadingProps = {
   label?: string;
   size?: 'sm' | 'md' | 'lg';
   fullScreen?: boolean;
+  variant?: 'inline' | 'card' | 'overlay';
 };
 
-export function TreeLoading({ label, size = 'md', fullScreen = false }: TreeLoadingProps) {
-  // Tamanhos dos ícones
-  const sizeClasses = {
-    sm: 'w-4 h-4 text-emerald-600 dark:text-emerald-400',
-    md: 'w-8 h-8 text-emerald-600 dark:text-emerald-400',
-    lg: 'w-12 h-12 text-emerald-600 dark:text-emerald-400',
-  };
+export function TreeLoading({ label, size = 'md', fullScreen = false, variant }: TreeLoadingProps) {
+  // Determina se deve renderizar no modo simplificado/inline
+  const isInline = variant === 'inline' || (size === 'sm' && variant !== 'card' && variant !== 'overlay');
 
-  // Tamanhos dos textos
-  const textClasses = {
-    sm: 'text-[10px] text-zinc-500 dark:text-zinc-455',
-    md: 'text-sm font-medium text-zinc-600 dark:text-zinc-300',
-    lg: 'text-base font-semibold text-emerald-800 dark:text-emerald-300',
-  };
+  // Determina se deve renderizar no modo overlay
+  const isOverlay = variant === 'overlay' || fullScreen;
 
-  const containerContent = (
+  // Estilos de animação CSS injetados de forma autocontida
+  const keyframesStyle = (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes treeSeedDrop {
+            0% { transform: translate(-50%, -24px) scale(0.5); opacity: 0; }
+            10% { transform: translate(-50%, 0px) scale(1); opacity: 1; }
+            25% { transform: translate(-50%, 12px) scale(0.8); opacity: 0.5; }
+            30%, 100% { transform: translate(-50%, 14px) scale(0); opacity: 0; }
+          }
+          @keyframes treeSproutGrow {
+            0%, 28% { transform: translate(-50%, 6px) scale(0); opacity: 0; }
+            33% { transform: translate(-50%, 6px) scale(0.4); opacity: 0.5; }
+            45% { transform: translate(-50%, -2px) scale(1.2) rotate(-8deg); opacity: 1; }
+            55% { transform: translate(-50%, 0px) scale(1) rotate(4deg); opacity: 1; }
+            62%, 100% { transform: translate(-50%, 2px) scale(0); opacity: 0; }
+          }
+          @keyframes treeTreeSway {
+            0%, 60% { transform: translate(-50%, 6px) scale(0) rotate(0deg); opacity: 0; }
+            64% { transform: translate(-50%, 4px) scale(0.5) rotate(0deg); opacity: 0.3; }
+            75% { transform: translate(-50%, -4px) scale(1.1) rotate(-6deg); opacity: 1; }
+            85% { transform: translate(-50%, -2px) scale(1) rotate(4deg); opacity: 1; }
+            95% { transform: translate(-50%, 0px) scale(1) rotate(0deg); opacity: 0.8; }
+            100% { transform: translate(-50%, 6px) scale(0) rotate(0deg); opacity: 0; }
+          }
+          @keyframes treeSwaySimple {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+          }
+        `,
+      }}
+    />
+  );
+
+  if (isInline) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="inline-flex items-center gap-1.5 align-middle text-xs font-semibold text-current shrink-0"
+      >
+        {keyframesStyle}
+        <span
+          className="inline-block text-sm"
+          style={{
+            transformOrigin: 'bottom center',
+            animation: 'treeSwaySimple 1.4s ease-in-out infinite',
+          }}
+        >
+          🌱
+        </span>
+        {label && <span className="opacity-90">{label}</span>}
+      </div>
+    );
+  }
+
+  // Layout completo (card ou overlay)
+  const content = (
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-col items-center justify-center gap-2 p-2"
+      className="flex flex-col items-center justify-center gap-4 py-6 text-center"
     >
-      {/* Ícone de Broto/Folha com animação de pulso/respiração e flutuação */}
-      <div className="relative flex items-center justify-center">
-        {/* Efeito de pulso de fundo */}
+      {keyframesStyle}
+
+      {/* Container da Animação do Cultivo da Planta */}
+      <div className="relative h-20 w-24 overflow-hidden">
+        {/* Efeito de Solo */}
+        <div className="absolute bottom-4 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-emerald-950/20 dark:bg-emerald-450/20" />
+
+        {/* Semente descendo */}
         <div
-          className={`absolute rounded-full bg-emerald-500/20 animate-ping ${
-            size === 'sm' ? 'w-6 h-6' : size === 'md' ? 'w-12 h-12' : 'w-18 h-18'
-          }`}
+          className="absolute left-1/2 w-2.5 h-2.5 rounded-full bg-amber-700"
+          style={{
+            animation: 'treeSeedDrop 3s infinite ease-in-out',
+          }}
         />
-        
-        {/* SVG do brotinho crescendo / balançando */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className={`${sizeClasses[size]} animate-bounce`}
-          style={{ animationDuration: '2s' }}
+
+        {/* Broto emergindo */}
+        <div
+          className="absolute left-1/2 text-2xl"
+          style={{
+            animation: 'treeSproutGrow 3s infinite ease-in-out',
+          }}
         >
-          {/* SVG de broto/planta */}
-          <path d="M12 2C11.5 2 7 6 7 11C7 14.5 9.5 17 12 17C14.5 17 17 14.5 17 11C17 6 12.5 2 12 2ZM12 15C10.5 15 9 13.5 9 11C9 9 11 6.5 12 5.2C13 6.5 15 9 15 11C15 13.5 13.5 15 12 15Z" />
-          <path d="M12 17V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M12 19C13 19 14.5 18 15 17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M12 21C11 21 9.5 20 9 19.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+          🌱
+        </div>
+
+        {/* Árvore florescendo */}
+        <div
+          className="absolute left-1/2 text-3xl"
+          style={{
+            animation: 'treeTreeSway 3s infinite ease-in-out',
+          }}
+        >
+          🌳
+        </div>
       </div>
 
       {label && (
-        <span className={`${textClasses[size]} tracking-tight text-center animate-pulse`}>
+        <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 animate-pulse px-2">
           {label}
-        </span>
+        </p>
       )}
     </div>
   );
 
-  if (fullScreen) {
+  if (isOverlay) {
     return (
-      <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-        <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl max-w-xs w-full">
-          {containerContent}
+      <div className="fixed inset-0 bg-zinc-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">
+        <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-6 shadow-2xl max-w-xs w-full animate-scale-up">
+          {content}
         </div>
       </div>
     );
   }
 
-  return containerContent;
+  // Modo Card comum (junto ao formulário ou área)
+  return (
+    <div className="border border-zinc-200/50 dark:border-zinc-800/50 bg-white/40 dark:bg-zinc-900/40 rounded-2xl p-4 w-full">
+      {content}
+    </div>
+  );
 }

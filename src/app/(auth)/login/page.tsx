@@ -30,6 +30,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,7 +54,7 @@ function LoginForm() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (loading || isRedirecting) return;
 
     // Validações básicas de campos
     const trimmedEmail = email.trim();
@@ -69,6 +70,7 @@ function LoginForm() {
     setLoading(true);
     setMessage(null);
 
+    let redirecting = false;
     try {
       const supabase = getBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({
@@ -84,7 +86,11 @@ function LoginForm() {
       const nextParam = searchParams.get('next');
       const safeRedirect = getSafeRedirectUrl(nextParam, '/garden');
 
-      router.push(safeRedirect);
+      redirecting = true;
+      setIsRedirecting(true);
+
+      router.replace(safeRedirect);
+      router.refresh();
     } catch (err: unknown) {
       console.error('Erro no login:', err);
       let errorMessage = 'E-mail ou senha incorretos. Verifique suas credenciais.';
@@ -107,13 +113,24 @@ function LoginForm() {
         type: 'error',
         text: errorMessage,
       });
-    } finally {
+      setIsRedirecting(false);
       setLoading(false);
+    } finally {
+      if (!redirecting) {
+        setLoading(false);
+      }
     }
   }
 
+  const isFormDisabled = loading || isRedirecting;
+
   return (
-    <Card variant="glass" className="w-full shadow-lg">
+    <Card variant="glass" className="w-full shadow-lg relative">
+      {/* Overlay de Redirecionamento Ativo */}
+      {isRedirecting && (
+        <TreeLoading variant="overlay" label="Entrando no jardim..." />
+      )}
+
       <div className="text-center mb-8">
         <h1 className="text-3xl font-extrabold text-emerald-800 dark:text-emerald-400 tracking-tight">TaskGarden</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-2">Cultive sua produtividade passo a passo</p>
@@ -141,7 +158,7 @@ function LoginForm() {
             placeholder="seuemail@exemplo.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
+            disabled={isFormDisabled}
             className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
@@ -165,14 +182,14 @@ function LoginForm() {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
+            disabled={isFormDisabled}
             className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
         <button
           type="submit"
-          disabled={loading || !email || !password}
+          disabled={isFormDisabled || !email || !password}
           className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-colors text-sm flex items-center justify-center min-h-[48px]"
         >
           {loading ? (

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { createTaskAction } from '../../app/(dashboard)/tasks/actions';
 import { LifeArea } from '../../domain/growth/types';
 import { Card } from '../ui/Card';
+import { TreeLoading } from '../ui/TreeLoading';
 
 interface CreateTaskFormProps {
   areas: LifeArea[];
@@ -164,9 +165,13 @@ export function CreateTaskForm({ areas }: CreateTaskFormProps) {
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm shadow-md transition-colors"
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm shadow-md transition-colors flex items-center justify-center min-h-[44px]"
           >
-            {isPending ? 'Plantando...' : 'Plantar Semente'}
+            {isPending ? (
+              <TreeLoading label="Plantando..." size="sm" />
+            ) : (
+              'Plantar Semente'
+            )}
           </button>
         </div>
       </form>
