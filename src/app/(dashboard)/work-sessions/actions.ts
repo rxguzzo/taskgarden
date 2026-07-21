@@ -97,7 +97,7 @@ export async function createWorkSessionAction(
 
     if (insertError) {
       console.error('Erro de banco ao criar sessão de trabalho:', insertError);
-      return { success: false, error: insertError.message || 'Falha ao registrar sessão de trabalho.' };
+      return { success: false, error: 'Falha ao registrar sessão de trabalho.' };
     }
 
     // 6. Revalidação dos caminhos
