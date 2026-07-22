@@ -4,18 +4,20 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBrowserClient } from '@/services/supabase/browser';
 import { Card } from '@/components/ui/Card';
+import { TreeLoading } from '@/components/ui/TreeLoading';
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (loading || isRedirecting) return;
 
     // Validações básicas no cliente
     if (password.length < 6) {
@@ -30,6 +32,7 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setMessage(null);
 
+    let redirecting = false;
     try {
       const supabase = getBrowserClient();
       const { error } = await supabase.auth.updateUser({
@@ -40,19 +43,22 @@ export default function ResetPasswordPage() {
         throw error;
       }
 
+      redirecting = true;
+      setIsRedirecting(true);
+
       setMessage({
         type: 'success',
-        text: 'Sua senha foi redefinida com sucesso! Você será redirecionado para a tela de login em alguns segundos.',
+        text: 'Senha redefinida com sucesso. Redirecionando para o seu jardim...',
       });
 
       // Limpar campos
       setPassword('');
       setConfirmPassword('');
 
-      // Redireciona para o login após 3 segundos
+      // Redireciona para o painel /garden após 2 segundos
       setTimeout(() => {
-        router.push('/login');
-      }, 3000);
+        router.push('/garden');
+      }, 2000);
     } catch (err: unknown) {
       console.error('Erro ao redefinir senha:', err);
       const errorObj = err as { status?: number; message?: string };
@@ -64,13 +70,24 @@ export default function ResetPasswordPage() {
         type: 'error',
         text: errorMessage,
       });
-    } finally {
+      setIsRedirecting(false);
       setLoading(false);
+    } finally {
+      if (!redirecting) {
+        setLoading(false);
+      }
     }
   }
 
+  const isFormDisabled = loading || isRedirecting;
+
   return (
-    <Card variant="glass" className="w-full shadow-lg">
+    <Card variant="glass" className="w-full shadow-lg relative">
+      {/* Overlay de Redirecionamento Ativo */}
+      {isRedirecting && (
+        <TreeLoading variant="overlay" label="Senha redefinida com sucesso. Redirecionando para o seu jardim..." />
+      )}
+
       <div className="text-center mb-8">
         <h1 className="text-3xl font-extrabold text-emerald-800 dark:text-emerald-400 tracking-tight">Nova Senha</h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-2">Escolha sua nova senha de acesso</p>
@@ -98,7 +115,7 @@ export default function ResetPasswordPage() {
             placeholder="No mínimo 6 caracteres"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
+            disabled={isFormDisabled}
             className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
@@ -114,17 +131,21 @@ export default function ResetPasswordPage() {
             placeholder="Repita a nova senha"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading}
+            disabled={isFormDisabled}
             className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
         <button
           type="submit"
-          disabled={loading || !password || !confirmPassword}
-          className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-colors text-sm"
+          disabled={isFormDisabled || !password || !confirmPassword}
+          className="block w-full text-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 px-4 rounded-xl shadow-md transition-colors text-sm flex items-center justify-center min-h-[48px]"
         >
-          {loading ? 'Redefinindo...' : 'Salvar Nova Senha'}
+          {loading ? (
+            <TreeLoading label="Redefinindo..." size="sm" />
+          ) : (
+            'Salvar Nova Senha'
+          )}
         </button>
       </form>
     </Card>

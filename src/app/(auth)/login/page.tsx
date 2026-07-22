@@ -88,9 +88,7 @@ function LoginForm() {
 
       redirecting = true;
       setIsRedirecting(true);
-
       router.replace(safeRedirect);
-      router.refresh();
     } catch (err: unknown) {
       console.error('Erro no login:', err);
       let errorMessage = 'E-mail ou senha incorretos. Verifique suas credenciais.';

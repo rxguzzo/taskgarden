@@ -32,9 +32,15 @@ interface AreaTasksListProps {
 }
 
 export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
-  const activeTasks = tasks.filter((t) => t.status === 'ACTIVE');
-  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
-  const prunedTasks = tasks.filter((t) => t.status === 'PRUNED');
+  const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+
+  useEffect(() => {
+    setLocalTasks(tasks);
+  }, [tasks]);
+
+  const activeTasks = localTasks.filter((t) => t.status === 'ACTIVE');
+  const completedTasks = localTasks.filter((t) => t.status === 'COMPLETED');
+  const prunedTasks = localTasks.filter((t) => t.status === 'PRUNED');
 
   // States for Modals
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -86,25 +92,55 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
   };
 
   const handleToggleSubtask = async (subtaskId: string, isCompleted: boolean) => {
+    if (isSubtaskActionPending[subtaskId]) return;
     setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: true }));
+
+    const previousTasks = [...localTasks];
+
+    // Otimista: atualiza status local da subtarefa
+    setLocalTasks(prev => prev.map(task => ({
+      ...task,
+      subtasks: task.subtasks?.map(sub =>
+        sub.id === subtaskId ? { ...sub, is_completed: isCompleted, completed_at: isCompleted ? new Date().toISOString() : null } : sub
+      )
+    })));
+
     try {
       const res = await toggleSubtaskAction(subtaskId, isCompleted);
       if (!res.success) {
+        setLocalTasks(previousTasks);
         alert(res.error || 'Erro ao alternar status da subtarefa.');
       }
+    } catch {
+      setLocalTasks(previousTasks);
+      alert('Erro de conexão ao salvar subtarefa.');
     } finally {
       setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: false }));
     }
   };
 
   const handleDeleteSubtask = async (subtaskId: string) => {
+    if (isSubtaskActionPending[subtaskId]) return;
     if (confirm('Tem certeza que deseja excluir esta subtarefa?')) {
       setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: true }));
+
+      const previousTasks = [...localTasks];
+
+      // Otimista: remove subtarefa localmente
+      setLocalTasks(prev => prev.map(task => ({
+        ...task,
+        subtasks: task.subtasks?.filter(sub => sub.id !== subtaskId)
+      })));
+
       try {
         const res = await deleteSubtaskAction(subtaskId);
         if (!res.success) {
+          setLocalTasks(previousTasks);
           alert(res.error || 'Erro ao excluir subtarefa.');
         }
+      } catch {
+        setLocalTasks(previousTasks);
+        alert('Erro de conexão ao excluir subtarefa.');
       } finally {
         setIsSubtaskActionPending(prev => ({ ...prev, [subtaskId]: false }));
       }
@@ -143,11 +179,25 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
   const handleComplete = async (taskId: string) => {
     if (pendingCompleteTaskId) return;
     setPendingCompleteTaskId(taskId);
+
+    const previousTasks = [...localTasks];
+
+    // Otimista: altera status para COMPLETED, progress para 100 e define data de conclusão
+    setLocalTasks(prev => prev.map(task =>
+      task.id === taskId
+        ? { ...task, status: 'COMPLETED', progress: 100, completed_at: new Date().toISOString() }
+        : task
+    ));
+
     try {
       const res = await completeTaskAction(taskId);
       if (!res.success) {
+        setLocalTasks(previousTasks);
         alert(res.error || 'Erro ao concluir tarefa.');
       }
+    } catch {
+      setLocalTasks(previousTasks);
+      alert('Erro de conexão ao concluir tarefa.');
     } finally {
       setPendingCompleteTaskId(null);
     }
@@ -157,11 +207,21 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
     if (pendingDeleteTaskId) return;
     if (confirm('Tem certeza que deseja excluir esta semente? Esta ação é irreversível.')) {
       setPendingDeleteTaskId(taskId);
+
+      const previousTasks = [...localTasks];
+
+      // Otimista: remove tarefa da visualização local
+      setLocalTasks(prev => prev.filter(task => task.id !== taskId));
+
       try {
         const res = await deleteTaskAction(taskId);
         if (!res.success) {
+          setLocalTasks(previousTasks);
           alert(res.error || 'Erro ao excluir tarefa.');
         }
+      } catch {
+        setLocalTasks(previousTasks);
+        alert('Erro de conexão ao excluir tarefa.');
       } finally {
         setPendingDeleteTaskId(null);
       }
@@ -378,14 +438,23 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                               className={`flex items-center justify-between gap-3 text-xs bg-zinc-50/50 dark:bg-zinc-950/20 px-3 py-2 rounded-xl border border-zinc-200/40 dark:border-zinc-850/30 hover:bg-zinc-50 dark:hover:bg-zinc-950/40 transition-colors min-w-0 w-full ${isSubtaskActionPending[sub.id] ? 'opacity-55 pointer-events-none' : ''}`}
                             >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <input
-                                  type="checkbox"
-                                  checked={sub.is_completed}
-                                  onChange={() => handleToggleSubtask(sub.id, !sub.is_completed)}
-                                  disabled={!!isSubtaskActionPending[sub.id]}
-                                  aria-label={`Marcar subtarefa "${sub.title}" como concluída`}
-                                  className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-500 cursor-pointer shrink-0"
-                                />
+                                {isSubtaskActionPending[sub.id] ? (
+                                  <div className="w-4 h-4 flex items-center justify-center shrink-0" role="status">
+                                    <svg className="animate-spin h-3.5 w-3.5 text-emerald-600 dark:text-emerald-450" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={sub.is_completed}
+                                    onChange={() => handleToggleSubtask(sub.id, !sub.is_completed)}
+                                    disabled={!!isSubtaskActionPending[sub.id]}
+                                    aria-label={`Marcar subtarefa "${sub.title}" como concluída`}
+                                    className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-500 cursor-pointer shrink-0"
+                                  />
+                                )}
                                 {isEditing ? (
                                   <div className="flex items-center gap-1 flex-1 min-w-0">
                                     <input
@@ -500,9 +569,13 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                       <button
                         type="submit"
                         disabled={!!isSubtaskActionPending[task.id] || !(newSubtaskTitle[task.id] || '').trim()}
-                        className="w-full sm:w-auto shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center disabled:opacity-50"
+                        className="w-full sm:w-auto shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors text-center disabled:opacity-50 flex items-center justify-center min-w-[70px]"
                       >
-                        {isSubtaskActionPending[task.id] ? 'Adicionando...' : 'Adicionar'}
+                        {isSubtaskActionPending[task.id] ? (
+                          <TreeLoading label="Adicionando..." size="sm" />
+                        ) : (
+                          'Adicionar'
+                        )}
                       </button>
                     </form>
                   </div>
