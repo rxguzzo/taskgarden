@@ -271,7 +271,8 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
             </p>
             <div className="mt-4">
               <Link
-                href={`/tasks?areaId=${area?.id || ''}`}
+                href={`/garden/${area?.id || ''}?modal=plant-task`}
+                scroll={false}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition-colors inline-block"
                 aria-label="Plantar Primeira Semente"
               >

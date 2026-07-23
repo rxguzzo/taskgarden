@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getServerClient } from '../../../../services/supabase/server';
@@ -137,7 +137,9 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
         </div>
 
         {/* Ações da Área (Plantar, Editar, Arquivar) */}
-        <AreaHeaderActions area={area} />
+        <Suspense fallback={<div className="h-10 w-24 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded-xl" />}>
+          <AreaHeaderActions area={area} />
+        </Suspense>
       </div>
 
       {/* Grid de Conteúdo Principal */}
