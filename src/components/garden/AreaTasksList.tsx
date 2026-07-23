@@ -837,7 +837,8 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
           <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
             <button
               onClick={() => setEditingTask(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+              disabled={isEditPending}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -969,9 +970,13 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                 <button
                   type="submit"
                   disabled={isEditPending}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center justify-center min-w-[130px]"
                 >
-                  {isEditPending ? 'Salvando...' : 'Salvar Alterações'}
+                  {isEditPending ? (
+                    <TreeLoading label="Salvando..." size="sm" />
+                  ) : (
+                    'Salvar Alterações'
+                  )}
                 </button>
               </div>
             </form>
@@ -985,7 +990,8 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
           <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
             <button
               onClick={() => setPruningTask(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+              disabled={isPrunePending}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1035,9 +1041,13 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                 <button
                   type="submit"
                   disabled={isPrunePending}
-                  className="px-5 py-2 bg-red-650 hover:bg-red-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors"
+                  className="px-5 py-2 bg-red-650 hover:bg-red-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center justify-center min-w-[110px]"
                 >
-                  {isPrunePending ? 'Podando...' : 'Podar Tarefa'}
+                  {isPrunePending ? (
+                    <TreeLoading label="Podando..." size="sm" />
+                  ) : (
+                    'Podar Tarefa'
+                  )}
                 </button>
               </div>
             </form>
@@ -1051,7 +1061,8 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
           <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
             <button
               onClick={() => setLoggingTimeTask(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+              disabled={isLogTimePending}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1133,9 +1144,13 @@ export function AreaTasksList({ tasks, sessions, area }: AreaTasksListProps) {
                 <button
                   type="submit"
                   disabled={isLogTimePending}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center justify-center min-w-[120px]"
                 >
-                  {isLogTimePending ? 'Registrando...' : 'Registrar Tempo'}
+                  {isLogTimePending ? (
+                    <TreeLoading label="Registrando..." size="sm" />
+                  ) : (
+                    'Registrar Tempo'
+                  )}
                 </button>
               </div>
             </form>
