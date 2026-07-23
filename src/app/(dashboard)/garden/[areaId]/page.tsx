@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getServerClient } from '../../../../services/supabase/server';
 import { Card } from '../../../../components/ui/Card';
@@ -7,6 +6,7 @@ import { PlantVisual } from '../../../../components/plants/PlantVisual';
 import { formatFriendlyDate } from '../../../../utils/date';
 import { AreaHeaderActions } from '../../../../components/garden/AreaHeaderActions';
 import { AreaTasksList } from '../../../../components/garden/AreaTasksList';
+import { BackButton } from '../../../../components/garden/BackButton';
 import { 
   getStageLabel, 
   getVisualSizeLabel,
@@ -121,15 +121,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
       {/* Barra de Navegação Superior / Voltar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-100 dark:border-zinc-900 pb-6">
         <div className="flex items-center space-x-3">
-          <Link
-            href="/garden"
-            className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-650 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
-            title="Voltar ao Jardim"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
-          </Link>
+          <BackButton />
           <div>
             <span className="text-xs uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400">Área da Vida</span>
             <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">{area.name}</h1>
