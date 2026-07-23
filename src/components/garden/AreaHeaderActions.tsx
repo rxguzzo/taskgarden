@@ -1,8 +1,8 @@
 'use client';
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import React, { useState, useActionState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useActionState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { updateLifeAreaAction, archiveLifeAreaAction } from '../../app/(dashboard)/garden/actions';
 import { createTaskAction } from '../../app/(dashboard)/tasks/actions';
 import { LifeArea } from '../../domain/growth/types';
@@ -14,11 +14,27 @@ interface AreaHeaderActionsProps {
 
 export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isTaskOpen, setIsTaskOpen] = useState(false);
+  const isTaskOpen = searchParams.get('modal') === 'plant-task';
 
   const [editState, editFormAction, isEditPending] = useActionState(updateLifeAreaAction, null);
   const [taskState, taskFormAction, isTaskPending] = useActionState(createTaskAction, null);
+
+  const openTaskModal = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('modal', 'plant-task');
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
+  const closeTaskModal = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('modal');
+    const queryString = params.toString();
+    router.push(queryString ? `?${queryString}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   // Close modals on success
   useEffect(() => {
@@ -29,9 +45,9 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
 
   useEffect(() => {
     if (taskState?.success) {
-      setIsTaskOpen(false);
+      closeTaskModal();
     }
-  }, [taskState]);
+  }, [taskState, closeTaskModal]);
 
   const [isArchivePending, setIsArchivePending] = useState(false);
 
@@ -66,7 +82,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
       {/* Botão Plantar Tarefa */}
       <button
         type="button"
-        onClick={() => setIsTaskOpen(true)}
+        onClick={openTaskModal}
         disabled={isArchivePending}
         className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -210,7 +226,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
         <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">
           <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
             <button
-              onClick={() => setIsTaskOpen(false)}
+              onClick={closeTaskModal}
               className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -315,7 +331,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
               <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                 <button
                   type="button"
-                  onClick={() => setIsTaskOpen(false)}
+                  onClick={closeTaskModal}
                   disabled={isTaskPending}
                   className="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
                 >
