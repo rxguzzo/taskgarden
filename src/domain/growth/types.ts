@@ -109,3 +109,28 @@ export interface DemoAreaTask {
   dueDate?: string;
   pruneReason?: string;
 }
+
+export type HabitFrequency = 'DAILY' | 'WEEKDAYS' | 'CUSTOM_WEEKLY' | 'MONTHLY';
+
+export interface Habit {
+  id: string;
+  user_id: string;
+  life_area_id: string;
+  title: string;
+  description: string | null;
+  frequency: HabitFrequency;
+  custom_days: number[]; // Array de inteiros (0 = Domingo, 6 = Sábado)
+  day_of_month: number | null; // Dia do mês (1 a 31)
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface HabitCompletion {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_date: string; // Formato YYYY-MM-DD puro
+  created_at: string;
+}
