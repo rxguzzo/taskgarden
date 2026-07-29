@@ -2,7 +2,7 @@ export interface NavigationItem {
   id: string;
   label: string;
   href: string;
-  iconType: 'garden' | 'plant' | 'focus' | 'greenhouse' | 'statistics' | 'settings';
+  iconType: 'garden' | 'plant' | 'focus' | 'greenhouse' | 'statistics' | 'settings' | 'calendar';
 }
 
 export const navigationItems: NavigationItem[] = [
@@ -18,6 +18,12 @@ export const navigationItems: NavigationItem[] = [
     label: 'Foco',
     href: '/focus',
     iconType: 'focus',
+  },
+  {
+    id: 'calendar',
+    label: 'Agenda',
+    href: '/calendar',
+    iconType: 'calendar',
   },
   {
     id: 'greenhouse',
