@@ -1,40 +1,45 @@
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Task, LifeArea } from '../../domain/growth/types';
+import { Task, LifeArea, Habit, HabitCompletion } from '../../domain/growth/types';
 import { Card } from '../ui/Card';
 import { completeTaskAction } from '../../app/(dashboard)/tasks/actions';
+import { toggleHabitCompletionAction, archiveHabitAction } from '../../app/(dashboard)/calendar/actions';
 import { getTodayDateOnly, toDateOnly, formatDateOnlyBr } from '../../utils/date';
+import { CreateHabitModal } from './CreateHabitModal';
 
 interface AgendaClientProps {
   initialTasks: Task[];
   lifeAreas: LifeArea[];
+  initialHabits: Habit[];
+  initialCompletions: HabitCompletion[];
 }
 
 const AREA_COLOR_MAP = {
   emerald: {
-    bg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 dark:border-emerald-500/30 hover:bg-emerald-500/20',
+    bg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-450 border-emerald-500/20 dark:border-emerald-500/30 hover:bg-emerald-500/20',
     dot: 'bg-emerald-500'
   },
   blue: {
-    bg: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/20',
+    bg: 'bg-blue-500/10 text-blue-700 dark:text-blue-450 border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/20',
     dot: 'bg-blue-500'
   },
   purple: {
-    bg: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 dark:border-purple-500/30 hover:bg-purple-500/20',
+    bg: 'bg-purple-500/10 text-purple-700 dark:text-purple-450 border-purple-500/20 dark:border-purple-500/30 hover:bg-purple-500/20',
     dot: 'bg-purple-500'
   },
   amber: {
-    bg: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 dark:border-amber-500/30 hover:bg-amber-500/20',
+    bg: 'bg-amber-500/10 text-amber-700 dark:text-amber-450 border-amber-500/20 dark:border-amber-500/30 hover:bg-amber-500/20',
     dot: 'bg-amber-500'
   },
   rose: {
-    bg: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20 dark:border-rose-500/30 hover:bg-rose-500/20',
+    bg: 'bg-rose-500/10 text-rose-700 dark:text-rose-450 border-rose-500/20 dark:border-rose-500/30 hover:bg-rose-500/20',
     dot: 'bg-rose-500'
   },
   slate: {
-    bg: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20 dark:border-slate-500/30 hover:bg-slate-500/20',
+    bg: 'bg-slate-500/10 text-slate-700 dark:text-slate-450 border-slate-500/20 dark:border-slate-500/30 hover:bg-slate-500/20',
     dot: 'bg-slate-500'
   }
 };
@@ -67,15 +72,50 @@ function getDaysDiff(dateStr1: string, dateStr2: string): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
+const getFrequencyLabel = (habit: Habit) => {
+  switch (habit.frequency) {
+    case 'DAILY':
+      return 'Todos os dias';
+    case 'WEEKDAYS':
+      return 'Segunda a sexta';
+    case 'CUSTOM_WEEKLY':
+      const days = habit.custom_days || [];
+      const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      return `Dias: ${days.map(d => dayNames[d]).join(', ')}`;
+    case 'MONTHLY':
+      return `Todo dia ${habit.day_of_month}`;
+    default:
+      return 'Rotina';
+  }
+};
+
+export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCompletions }: AgendaClientProps) {
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks);
+  const [localHabits, setLocalHabits] = useState<Habit[]>(initialHabits);
+  const [localCompletions, setLocalCompletions] = useState<HabitCompletion[]>(initialCompletions);
+
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [pendingHabitActionIds, setPendingHabitActionIds] = useState<Record<string, boolean>>({});
+  const [isCreateHabitOpen, setIsCreateHabitOpen] = useState(false);
 
   // Estados do mini-calendário
   const todayDateStr = getTodayDateOnly();
   const [currentDate, setCurrentDate] = useState(new Date());
   const calMonth = currentDate.getMonth();
   const calYear = currentDate.getFullYear();
+
+  // Sincroniza props do servidor com estados locais ao revalidar
+  useEffect(() => {
+    setLocalTasks(initialTasks);
+  }, [initialTasks]);
+
+  useEffect(() => {
+    setLocalHabits(initialHabits);
+  }, [initialHabits]);
+
+  useEffect(() => {
+    setLocalCompletions(initialCompletions);
+  }, [initialCompletions]);
 
   // Mapeia áreas por ID
   const areasMap = useMemo(() => {
@@ -107,6 +147,94 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
       setCompletingTaskId(null);
     }
   };
+
+  // Handler para marcar/desmarcar conclusão de rotina com UI otimista
+  const handleToggleHabit = async (habitId: string) => {
+    if (pendingHabitActionIds[habitId]) return;
+    setPendingHabitActionIds(prev => ({ ...prev, [habitId]: true }));
+
+    const previousCompletions = [...localCompletions];
+    const isCompleted = localCompletions.some(c => c.habit_id === habitId);
+
+    // Atualização otimista local
+    if (isCompleted) {
+      setLocalCompletions(prev => prev.filter(c => c.habit_id !== habitId));
+    } else {
+      setLocalCompletions(prev => [
+        ...prev,
+        {
+          id: `temp-${Date.now()}`,
+          habit_id: habitId,
+          user_id: '',
+          completed_date: todayDateStr,
+          created_at: new Date().toISOString()
+        }
+      ]);
+    }
+
+    try {
+      const res = await toggleHabitCompletionAction(habitId);
+      if (!res.success) {
+        setLocalCompletions(previousCompletions);
+        alert(res.error || 'Erro ao atualizar rotina.');
+      }
+    } catch {
+      setLocalCompletions(previousCompletions);
+      alert('Erro de conexão ao atualizar rotina.');
+    } finally {
+      setPendingHabitActionIds(prev => ({ ...prev, [habitId]: false }));
+    }
+  };
+
+  // Handler para arquivar rotina com UI otimista
+  const handleArchiveHabit = async (habitId: string) => {
+    if (pendingHabitActionIds[habitId]) return;
+    if (!confirm('Tem certeza que deseja arquivar esta rotina? Ela deixará de aparecer na sua agenda.')) return;
+
+    setPendingHabitActionIds(prev => ({ ...prev, [habitId]: true }));
+    const previousHabits = [...localHabits];
+
+    // Atualização otimista local
+    setLocalHabits(prev => prev.filter(h => h.id !== habitId));
+
+    try {
+      const res = await archiveHabitAction(habitId);
+      if (!res.success) {
+        setLocalHabits(previousHabits);
+        alert(res.error || 'Erro ao arquivar rotina.');
+      }
+    } catch {
+      setLocalHabits(previousHabits);
+      alert('Erro de conexão ao arquivar rotina.');
+    } finally {
+      setPendingHabitActionIds(prev => ({ ...prev, [habitId]: false }));
+    }
+  };
+
+  // Filtra as rotinas devidas para o dia de hoje
+  const todaysHabits = useMemo(() => {
+    const todayStr = getTodayDateOnly();
+    const todayObj = new Date(todayStr + 'T12:00:00');
+    const dayOfWeek = todayObj.getDay(); // 0 (Domingo) a 6 (Sábado)
+    const dayOfMonth = todayObj.getDate(); // 1 a 31
+
+    const activeHabits = localHabits.filter(h => h.is_active && h.deleted_at === null);
+
+    return activeHabits.filter(habit => {
+      switch (habit.frequency) {
+        case 'DAILY':
+          return true;
+        case 'WEEKDAYS':
+          return dayOfWeek >= 1 && dayOfWeek <= 5;
+        case 'CUSTOM_WEEKLY':
+          return (habit.custom_days || []).includes(dayOfWeek);
+        case 'MONTHLY':
+          return habit.day_of_month === dayOfMonth;
+        default:
+          return false;
+      }
+    });
+  }, [localHabits]);
 
   // Classifica tarefas ativas
   const categorizedTasks = useMemo(() => {
@@ -148,7 +276,6 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
     todayTasks.sort(sortByUrgency);
     upcoming.sort(sortByUrgency);
     noDeadline.sort((a, b) => {
-      // Sem prazo ordena por prioridade
       const pA = a.priority === 'URGENT' ? 4 : a.priority === 'HIGH' ? 3 : a.priority === 'MEDIUM' ? 2 : 1;
       const pB = b.priority === 'URGENT' ? 4 : b.priority === 'HIGH' ? 3 : b.priority === 'MEDIUM' ? 2 : 1;
       return pB - pA;
@@ -191,7 +318,7 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
     if (diff <= 7) {
       return {
         label: `Em ${diff} dias`,
-        badgeClass: 'text-yellow-600 dark:text-yellow-450 bg-yellow-500/10 dark:bg-yellow-550/15 border-yellow-500/20'
+        badgeClass: 'text-yellow-600 dark:text-yellow-450 bg-yellow-500/10 dark:bg-yellow-555/15 border-yellow-500/20'
       };
     }
     return {
@@ -206,11 +333,9 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
     const totalDays = new Date(calYear, calMonth + 1, 0).getDate();
 
     const cells = [];
-    // Células vazias do mês anterior
     for (let i = 0; i < firstDayIndex; i++) {
       cells.push(null);
     }
-    // Dias do mês atual
     for (let day = 1; day <= totalDays; day++) {
       cells.push(day);
     }
@@ -236,7 +361,6 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
 
   const formattedCalendarTitle = `${MONTH_NAMES[calMonth]} de ${calYear}`;
 
-  // Formata o cabeçalho "Hoje no seu jardim"
   const formattedTodayHeader = () => {
     const now = new Date();
     const day = now.getDate();
@@ -250,20 +374,31 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
   return (
     <div className="space-y-6">
       {/* 1. Bloco de Resumo Superior */}
-      <Card variant="glass" className="overflow-hidden relative">
+      <Card variant="glass" className="overflow-hidden relative animate-scale-up">
         <div className="absolute top-0 right-0 p-6 opacity-5 dark:opacity-10 pointer-events-none select-none">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-32 h-32 text-emerald-600">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
           </svg>
         </div>
         <div className="space-y-4">
-          <div>
-            <span className="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-450 tracking-wider">
-              Hoje no seu jardim
-            </span>
-            <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white mt-0.5">
-              {formattedTodayHeader()}
-            </h2>
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <span className="text-xs uppercase font-bold text-emerald-600 dark:text-emerald-450 tracking-wider">
+                Hoje no seu jardim
+              </span>
+              <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white mt-0.5">
+                {formattedTodayHeader()}
+              </h2>
+            </div>
+            <button
+              onClick={() => setIsCreateHabitOpen(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span>Nova Rotina</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -280,9 +415,9 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
               </p>
             </div>
             <div className="bg-zinc-100/40 dark:bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-100 dark:border-zinc-900/60">
-              <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-bold">Próximas</span>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-bold">Rotinas de Hoje</span>
               <p className="text-2xl font-black text-emerald-650 dark:text-emerald-450 mt-1">
-                {categorizedTasks.upcoming.length}
+                {todaysHabits.length}
               </p>
             </div>
             <div className="bg-zinc-100/40 dark:bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-100 dark:border-zinc-900/60">
@@ -297,8 +432,117 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
 
       {/* 2. Área Principal com Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Colunas de Tarefas (3/4 do espaço no desktop) */}
+        {/* Colunas de Conteúdo (3/4 do espaço no desktop) */}
         <div className="lg:col-span-3 space-y-6">
+          {/* Seção: Rotinas de Hoje */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-emerald-600 dark:text-emerald-450 tracking-wider flex items-center gap-1.5">
+              🔄 Rotinas de Hoje ({todaysHabits.length})
+            </h3>
+            <div className="space-y-3">
+              {todaysHabits.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-5 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhuma rotina programada para hoje. Clique em &quot;+ Nova Rotina&quot; para cadastrar!
+                </div>
+              ) : (
+                todaysHabits.map(habit => {
+                  const isDone = localCompletions.some(c => c.habit_id === habit.id);
+                  const area = areasMap.get(habit.life_area_id);
+                  const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
+                  const isActionPending = !!pendingHabitActionIds[habit.id];
+
+                  return (
+                    <div
+                      key={habit.id}
+                      className={`bg-white/80 dark:bg-zinc-900/80 border rounded-2xl p-4 flex gap-4 items-center justify-between shadow-sm transition-all hover:border-emerald-500/20 group relative overflow-hidden ${
+                        isDone ? 'border-zinc-200/40 dark:border-zinc-850/40 opacity-70' : 'border-zinc-200/60 dark:border-zinc-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Checkbox de Conclusão Otimista */}
+                        <button
+                          onClick={() => handleToggleHabit(habit.id)}
+                          disabled={isActionPending}
+                          aria-label={`Concluir rotina: ${habit.title}`}
+                          className={`w-5 h-5 rounded-lg border flex items-center justify-center cursor-pointer transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isDone
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
+                              : 'border-zinc-300 dark:border-zinc-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                          }`}
+                        >
+                          {isActionPending ? (
+                            <svg className="animate-spin h-3.5 w-3.5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : isDone ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-3.5 h-3.5 text-white animate-scale-up">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                          ) : (
+                            <span className="w-2.5 h-2.5 rounded bg-emerald-500 scale-0 group-hover:scale-100 transition-transform" />
+                          )}
+                        </button>
+
+                        {/* Dados da Rotina */}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className={`text-sm font-bold truncate flex-1 min-w-[120px] ${
+                              isDone ? 'line-through text-zinc-400 dark:text-zinc-550' : 'text-zinc-800 dark:text-zinc-200'
+                            }`}>
+                              {habit.title}
+                            </h4>
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-zinc-200/30 text-zinc-550 dark:text-zinc-400 bg-zinc-100/50 dark:bg-zinc-800/40">
+                              {getFrequencyLabel(habit)}
+                            </span>
+                          </div>
+
+                          {habit.description && (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                              {habit.description}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {area && (
+                              <Link
+                                href={`/garden/${area.id}`}
+                                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 transition-all ${areaColorInfo.bg}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${areaColorInfo.dot}`} />
+                                {area.name}
+                              </Link>
+                            )}
+                            <span className={`text-[9px] font-bold ${
+                              isDone ? 'text-emerald-600 dark:text-emerald-450 font-bold' : 'text-zinc-400 dark:text-zinc-550'
+                            }`}>
+                              {isDone ? '✓ Feito hoje' : '○ Pendente hoje'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botão Arquivar Rotina */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleArchiveHabit(habit.id)}
+                          disabled={isActionPending}
+                          title="Arquivar rotina"
+                          aria-label={`Arquivar rotina: ${habit.title}`}
+                          className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-950/20 rounded-xl transition-all"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
           {/* Seção: Atrasadas */}
           <div className="space-y-3">
             <h3 className="text-sm uppercase font-bold text-red-600 dark:text-red-400 tracking-wider flex items-center gap-1.5">
@@ -418,7 +662,7 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
                     className={`relative p-1.5 text-xs font-semibold rounded-lg flex flex-col items-center justify-center min-h-[2rem] select-none ${
                       isToday
                         ? 'bg-emerald-600 text-white font-bold'
-                        : 'text-zinc-750 dark:text-zinc-300 hover:bg-zinc-150 dark:hover:bg-zinc-800'
+                        : 'text-zinc-755 dark:text-zinc-300 hover:bg-zinc-150 dark:hover:bg-zinc-800'
                     }`}
                   >
                     <span>{day}</span>
@@ -435,25 +679,28 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
             </div>
           </Card>
 
-          {/* Seção de Hábitos Teaser (M10.2) */}
+          {/* Dica de Cultivo das Rotinas */}
           <Card variant="glass" className="p-4 space-y-3">
             <div className="flex items-center gap-1.5 text-emerald-650 dark:text-emerald-450 border-b border-emerald-950/5 dark:border-white/5 pb-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.467 5.99 5.99 0 0 0-1.925 3.546 5.974 5.974 0 0 1-2.133-1A3.75 3.75 0 0 0 12 18Z" />
               </svg>
-              <h4 className="text-xs font-bold uppercase tracking-wider">Hábitos de Hoje</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider">Cultivo de Rotinas</h4>
             </div>
-            <div className="bg-zinc-50/50 dark:bg-zinc-950/20 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-xl p-3.5 text-center">
-              <p className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
-                🔄 Hábitos estão chegando na M10.2!
-              </p>
-              <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1">
-                Você poderá programar tarefas recorrentes (academia, estudos, leituras) e acompanhar streaks diários.
-              </p>
-            </div>
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Marcar uma rotina como concluída hoje registra sua execução no banco de dados e a mantém ativa para reaparecer no próximo ciclo programado. Streaks e histórico gráfico estão a caminho!
+            </p>
           </Card>
         </div>
       </div>
+
+      {/* Modal de Criação de Rotina */}
+      {isCreateHabitOpen && (
+        <CreateHabitModal
+          lifeAreas={lifeAreas}
+          onClose={() => setIsCreateHabitOpen(false)}
+        />
+      )}
     </div>
   );
 
@@ -461,8 +708,7 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
   function renderTaskItem(task: Task) {
     const area = areasMap.get(task.life_area_id);
     const urgency = getUrgencyInfo(task.due_date);
-    const priority = PRIORITY_MAP[task.priority] || { label: 'Normal', color: 'text-zinc-600 bg-zinc-100' };
-
+    const priority = PRIORITY_MAP[task.priority] || { label: 'Normal', color: 'text-zinc-650 bg-zinc-100' };
     const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
 
     return (
@@ -471,7 +717,6 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
         className="bg-white/80 dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl p-4 flex gap-4 items-center justify-between shadow-sm transition-all hover:border-emerald-500/20 group relative overflow-hidden"
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Checkbox de Conclusão Otimista */}
           <button
             onClick={() => handleCompleteTask(task.id)}
             disabled={completingTaskId === task.id}
@@ -488,13 +733,11 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
             )}
           </button>
 
-          {/* Dados da Tarefa */}
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate flex-1 min-w-[120px]">
                 {task.title}
               </h4>
-              {/* Badge de Urgência de Prazo */}
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${urgency.badgeClass}`}>
                 {urgency.label}
               </span>
@@ -506,7 +749,6 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
               </p>
             )}
 
-            {/* Badges de Atributos */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               {area && (
                 <Link
@@ -529,7 +771,6 @@ export function AgendaClient({ initialTasks, lifeAreas }: AgendaClientProps) {
           </div>
         </div>
 
-        {/* Link para a área de vida correspondente */}
         {area && (
           <Link
             href={`/garden/${area.id}`}
