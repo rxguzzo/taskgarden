@@ -11,6 +11,16 @@ export function getTodayDateOnly(): string {
 }
 
 /**
+ * Extrai a parte da data YYYY-MM-DD de uma string/timestamp
+ * de forma a evitar bugs de deslocamento de fuso horário.
+ */
+export function toDateOnly(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? match[0] : null;
+}
+
+/**
  * Formata uma data puramente no padrão de calendário brasileiro (DD/MM/AAAA)
  * sem sofrer qualquer alteração por fuso horário local ou UTC.
  * Aceita formatos YYYY-MM-DD e similares.
