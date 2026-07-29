@@ -12,6 +12,155 @@ interface AreaHeaderActionsProps {
   area: LifeArea;
 }
 
+interface CreateTaskModalProps {
+  area: LifeArea;
+  onClose: () => void;
+}
+
+function CreateTaskModal({ area, onClose }: CreateTaskModalProps) {
+  const [taskState, taskFormAction, isTaskPending] = useActionState(createTaskAction, null);
+
+  // Fecha o modal ao obter sucesso na criação da tarefa
+  useEffect(() => {
+    if (taskState?.success) {
+      onClose();
+    }
+  }, [taskState, onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">
+      <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
+        <button
+          onClick={onClose}
+          disabled={isTaskPending}
+          className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-650 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Plantar Semente em {area.name}</h3>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Insira os detalhes para a nova tarefa desta área.</p>
+        </div>
+
+        <form action={taskFormAction} className="space-y-4">
+          {taskState?.error && (
+            <div className="bg-red-500/10 text-red-800 dark:text-red-355 p-3 rounded-xl text-xs border border-red-500/20">
+              ⚠️ {taskState.error}
+            </div>
+          )}
+
+          <input type="hidden" name="life_area_id" value={area.id} />
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_title">
+              Título da Tarefa *
+            </label>
+            <input
+              id="task_title"
+              name="title"
+              type="text"
+              required
+              placeholder="Ex: Resolver pendências do projeto"
+              disabled={isTaskPending}
+              className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_description">
+              Descrição (Opcional)
+            </label>
+            <textarea
+              id="task_description"
+              name="description"
+              rows={2}
+              placeholder="Descrição opcional..."
+              disabled={isTaskPending}
+              className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_difficulty">
+                Dificuldade
+              </label>
+              <select
+                id="task_difficulty"
+                name="difficulty"
+                defaultValue="MEDIUM"
+                disabled={isTaskPending}
+                className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="EASY">Fácil</option>
+                <option value="MEDIUM">Média</option>
+                <option value="HARD">Difícil</option>
+                <option value="VERY_HARD">Muito Difícil</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_priority">
+                Prioridade
+              </label>
+              <select
+                id="task_priority"
+                name="priority"
+                defaultValue="MEDIUM"
+                disabled={isTaskPending}
+                className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="LOW">Baixa</option>
+                <option value="MEDIUM">Média</option>
+                <option value="HIGH">Alta</option>
+                <option value="URGENT">Urgente</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_due_date">
+              Prazo de Conclusão (Colheita)
+            </label>
+            <input
+              id="task_due_date"
+              name="due_date"
+              type="date"
+              disabled={isTaskPending}
+              className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isTaskPending}
+              className="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isTaskPending}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center justify-center min-w-[130px]"
+            >
+              {isTaskPending ? (
+                <TreeLoading label="Plantando..." size="sm" />
+              ) : (
+                'Plantar Semente'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,7 +170,6 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
   const isTaskOpen = searchParams.get('modal') === 'plant-task';
 
   const [editState, editFormAction, isEditPending] = useActionState(updateLifeAreaAction, null);
-  const [taskState, taskFormAction, isTaskPending] = useActionState(createTaskAction, null);
 
   const openTaskModal = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -42,12 +190,6 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
       setIsEditOpen(false);
     }
   }, [editState]);
-
-  useEffect(() => {
-    if (taskState?.success) {
-      closeTaskModal();
-    }
-  }, [taskState, closeTaskModal]);
 
   const [isArchivePending, setIsArchivePending] = useState(false);
 
@@ -131,7 +273,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
             <button
               onClick={() => setIsEditOpen(false)}
               disabled={isEditPending}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-650 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -145,7 +287,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
 
             <form action={editFormAction} className="space-y-4">
               {editState?.error && (
-                <div className="bg-red-500/10 text-red-800 dark:text-red-300 p-3 rounded-xl text-xs border border-red-500/20">
+                <div className="bg-red-500/10 text-red-800 dark:text-red-350 p-3 rounded-xl text-xs border border-red-500/20">
                   ⚠️ {editState.error}
                 </div>
               )}
@@ -182,7 +324,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="color">
+                <label className="block text-xs font-semibold text-zinc-550 mb-1" htmlFor="color">
                   Cor da Árvore
                 </label>
                 <select
@@ -205,7 +347,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
                   type="button"
                   onClick={() => setIsEditOpen(false)}
                   disabled={isEditPending}
-                  className="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-zinc-650 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
                 >
                   Cancelar
                 </button>
@@ -226,138 +368,9 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
         </div>
       )}
 
-      {/* Modal: Criar Tarefa */}
+      {/* Modal: Criar Tarefa (agora unmontable via subcomponente) */}
       {isTaskOpen && (
-        <div className="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-backdrop-in">
-          <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-scale-up">
-            <button
-              onClick={closeTaskModal}
-              disabled={isTaskPending}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Plantar Semente em {area.name}</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Insira os detalhes para a nova tarefa desta área.</p>
-            </div>
-
-            <form action={taskFormAction} className="space-y-4">
-              {taskState?.error && (
-                <div className="bg-red-500/10 text-red-800 dark:text-red-300 p-3 rounded-xl text-xs border border-red-500/20">
-                  ⚠️ {taskState.error}
-                </div>
-              )}
-
-              <input type="hidden" name="life_area_id" value={area.id} />
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_title">
-                  Título da Tarefa *
-                </label>
-                <input
-                  id="task_title"
-                  name="title"
-                  type="text"
-                  required
-                  placeholder="Ex: Resolver pendências do projeto"
-                  disabled={isTaskPending}
-                  className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_description">
-                  Descrição (Opcional)
-                </label>
-                <textarea
-                  id="task_description"
-                  name="description"
-                  rows={2}
-                  placeholder="Descrição opcional..."
-                  disabled={isTaskPending}
-                  className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_difficulty">
-                    Dificuldade
-                  </label>
-                  <select
-                    id="task_difficulty"
-                    name="difficulty"
-                    defaultValue="MEDIUM"
-                    disabled={isTaskPending}
-                    className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="EASY">Fácil</option>
-                    <option value="MEDIUM">Média</option>
-                    <option value="HARD">Difícil</option>
-                    <option value="VERY_HARD">Muito Difícil</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_priority">
-                    Prioridade
-                  </label>
-                  <select
-                    id="task_priority"
-                    name="priority"
-                    defaultValue="MEDIUM"
-                    disabled={isTaskPending}
-                    className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="LOW">Baixa</option>
-                    <option value="MEDIUM">Média</option>
-                    <option value="HIGH">Alta</option>
-                    <option value="URGENT">Urgente</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1" htmlFor="task_due_date">
-                  Prazo de Conclusão (Colheita)
-                </label>
-                <input
-                  id="task_due_date"
-                  name="due_date"
-                  type="date"
-                  disabled={isTaskPending}
-                  className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={closeTaskModal}
-                  disabled={isTaskPending}
-                  className="px-4 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isTaskPending}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center justify-center min-w-[130px]"
-                >
-                  {isTaskPending ? (
-                    <TreeLoading label="Plantando..." size="sm" />
-                  ) : (
-                    'Plantar Semente'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateTaskModal area={area} onClose={closeTaskModal} />
       )}
     </div>
   );
