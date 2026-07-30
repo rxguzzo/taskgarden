@@ -72,6 +72,49 @@ function getDaysDiff(dateStr1: string, dateStr2: string): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
+function getNextOccurrenceDate(habit: Habit, todayStr: string): string {
+  const today = new Date(todayStr + 'T12:00:00');
+  for (let i = 0; i < 366; i++) {
+    const current = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    const currentStr = `${year}-${month}-${day}`;
+
+    const dayOfWeek = current.getDay();
+    const dayOfMonth = current.getDate();
+
+    let matches = false;
+    switch (habit.frequency) {
+      case 'DAILY':
+        matches = true;
+        break;
+      case 'WEEKDAYS':
+        matches = dayOfWeek >= 1 && dayOfWeek <= 5;
+        break;
+      case 'CUSTOM_WEEKLY':
+        matches = (habit.custom_days || []).includes(dayOfWeek);
+        break;
+      case 'MONTHLY':
+        matches = habit.day_of_month === dayOfMonth;
+        break;
+    }
+
+    if (matches) {
+      return currentStr;
+    }
+  }
+  return '';
+}
+
+function formatNextOccurrence(dateStr: string, todayStr: string): string {
+  if (!dateStr) return 'Sem ocorrência';
+  if (dateStr === todayStr) return 'Hoje';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+
 const getFrequencyLabel = (habit: Habit) => {
   switch (habit.frequency) {
     case 'DAILY':
@@ -676,6 +719,75 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                   </div>
                 );
               })}
+            </div>
+          </Card>
+
+          {/* Card: Minhas Rotinas */}
+          <Card variant="solid" className="p-4 space-y-3">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-200/60 dark:border-zinc-800/80">
+              <h4 className="text-xs font-bold text-zinc-700 dark:text-zinc-200 tracking-tight flex items-center gap-1.5">
+                🔄 Minhas Rotinas ({localHabits.filter(h => h.is_active && h.deleted_at === null).length})
+              </h4>
+            </div>
+
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {localHabits.filter(h => h.is_active && h.deleted_at === null).length === 0 ? (
+                <div className="text-[10px] text-zinc-400 dark:text-zinc-550 text-center py-4 font-medium">
+                  Nenhuma rotina cadastrada.
+                </div>
+              ) : (
+                localHabits.filter(h => h.is_active && h.deleted_at === null).map(habit => {
+                  const area = areasMap.get(habit.life_area_id);
+                  const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
+                  const isActionPending = !!pendingHabitActionIds[habit.id];
+
+                  const nextDateStr = getNextOccurrenceDate(habit, todayDateStr);
+                  const formattedNext = formatNextOccurrence(nextDateStr, todayDateStr);
+
+                  return (
+                    <div
+                      key={habit.id}
+                      className="bg-white/50 dark:bg-zinc-950/20 border border-zinc-150 dark:border-zinc-800/60 rounded-xl p-2.5 space-y-1.5 transition-all hover:border-emerald-500/10 text-left"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h5 className="text-[11px] font-bold text-zinc-850 dark:text-zinc-200 truncate">
+                            {habit.title}
+                          </h5>
+                          <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
+                            Frequência: {getFrequencyLabel(habit)}
+                          </span>
+                          <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
+                            Próxima: <span className="text-emerald-600 dark:text-emerald-450 font-bold">{formattedNext}</span>
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => handleArchiveHabit(habit.id)}
+                          disabled={isActionPending}
+                          title="Arquivar rotina"
+                          aria-label={`Arquivar rotina: ${habit.title}`}
+                          className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-950/20 rounded-lg transition-all shrink-0"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {area && (
+                        <Link
+                          href={`/garden/${area.id}`}
+                          className={`inline-flex text-[8px] font-bold px-1.5 py-0.5 rounded-full border items-center gap-1 transition-all ${areaColorInfo.bg}`}
+                        >
+                          <span className={`w-1 h-1 rounded-full ${areaColorInfo.dot}`} />
+                          {area.name}
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </Card>
 
