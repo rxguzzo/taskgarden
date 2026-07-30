@@ -803,23 +803,56 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
 
                   const nextDateStr = getNextOccurrenceDate(habit, todayDateStr, localCompletions);
                   const formattedNext = formatNextOccurrence(nextDateStr, todayDateStr);
+                  const isDone = isHabitCompleted(habit, localCompletions, todayDateStr);
+                  const statusLabel = getHabitStatusLabel(habit, isDone);
 
                   return (
                     <div
                       key={habit.id}
-                      className="bg-white/50 dark:bg-zinc-950/20 border border-zinc-150 dark:border-zinc-800/60 rounded-xl p-2.5 space-y-1.5 transition-all hover:border-emerald-500/10 text-left"
+                      className={`bg-white/50 dark:bg-zinc-950/20 border rounded-xl p-2.5 space-y-1.5 transition-all hover:border-emerald-500/10 text-left ${
+                        isDone ? 'border-emerald-500/20 opacity-75' : 'border-zinc-150 dark:border-zinc-800/60'
+                      }`}
                     >
                       <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h5 className="text-[11px] font-bold text-zinc-850 dark:text-zinc-200 truncate">
-                            {habit.title}
-                          </h5>
-                          <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
-                            Frequência: {getFrequencyLabel(habit)}
-                          </span>
-                          <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
-                            Próxima: <span className="text-emerald-600 dark:text-emerald-450 font-bold">{formattedNext}</span>
-                          </span>
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {/* Checkbox de Conclusão Otimista */}
+                          <button
+                            onClick={() => handleToggleHabit(habit.id)}
+                            disabled={isActionPending}
+                            aria-label={`Concluir rotina: ${habit.title}`}
+                            className={`w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isDone
+                                ? 'border-emerald-500 bg-emerald-500 text-white'
+                                : 'border-zinc-350 dark:border-zinc-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+                            }`}
+                          >
+                            {isActionPending ? (
+                              <svg className="animate-spin h-2.5 w-2.5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : isDone ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-2.5 h-2.5 text-white animate-scale-up">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                              </svg>
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-sm bg-emerald-500 scale-0 group-hover:scale-100 transition-transform" />
+                            )}
+                          </button>
+
+                          <div className="min-w-0 flex-1">
+                            <h5 className={`text-[11px] font-bold truncate ${
+                              isDone ? 'line-through text-zinc-450 dark:text-zinc-550' : 'text-zinc-850 dark:text-zinc-200'
+                            }`}>
+                              {habit.title}
+                            </h5>
+                            <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
+                              Frequência: {getFrequencyLabel(habit)} ({statusLabel})
+                            </span>
+                            <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-semibold block">
+                              Próxima: <span className="text-emerald-600 dark:text-emerald-450 font-bold">{formattedNext}</span>
+                            </span>
+                          </div>
                         </div>
 
                         <button
