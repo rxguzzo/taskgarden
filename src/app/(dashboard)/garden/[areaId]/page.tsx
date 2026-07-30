@@ -10,13 +10,15 @@ import { AreaRoutinesList } from '../../../../components/garden/AreaRoutinesList
 import { BackButton } from '../../../../components/garden/BackButton';
 import { 
   getStageLabel, 
-  getVisualSizeLabel,
   getHealthStatusLabel,
   getHealthStatusColorClass,
   calculatePlantStage,
   calculatePlantVisualSize,
   calculateHealthStatus,
-  getAreaProgress 
+  getAreaProgress,
+  calculateAreaXp,
+  calculateRecentActivityScore,
+  getStageXpBounds
 } from '../../../../domain/growth/rules';
 
 export const revalidate = 0;
@@ -90,7 +92,6 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     ...t,
     subtasks: (subtasks || []).filter(s => s.task_id === t.id)
   }));
-  const activeTasks = areaTasks.filter(t => t.status === 'ACTIVE');
 
   // Buscar sessões de trabalho associadas a esta área
   const { data: sessions, error: sessionsError } = await supabase
@@ -135,17 +136,53 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     console.error('Erro ao buscar conclusões das rotinas da área:', completionsError);
   }
 
+  // Buscar todas as conclusões de hábitos do usuário para calcular XP e SAT histórico
+  const { data: allCompletions, error: allCompletionsError } = await supabase
+    .from('habit_completions')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (allCompletionsError) {
+    console.error('Erro ao buscar todas as conclusões das rotinas:', allCompletionsError);
+  }
+
 
   // Deriva dados dinamicamente usando as regras de crescimento reais
-  const activeCount = activeTasks.length;
+  const completedTasksCount = areaTasks.filter((t) => t.status === 'COMPLETED').length;
+  const completedSubtasksCount = (subtasks || []).filter((s) => s.is_completed).length;
+
+  const areaHabits = habits || [];
+  const areaCompletions = (allCompletions || []).filter((c) =>
+    areaHabits.some((h) => h.id === c.habit_id)
+  );
+  const habitCompletionsCount = areaCompletions.length;
 
   // M3: Esforço real por work_sessions.duration_minutes
   const totalMinutes = areaSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-  const stage = calculatePlantStage(totalMinutes);
-  const visualSize = calculatePlantVisualSize(stage, totalMinutes);
-  const healthStatus = calculateHealthStatus(activeCount);
+
+  // M11: Cálculo de XP e Estágio da Árvore
+  const xp = calculateAreaXp(
+    completedTasksCount,
+    completedSubtasksCount,
+    totalMinutes,
+    habitCompletionsCount
+  );
+
+  const stage = calculatePlantStage(xp);
+  const visualSize = calculatePlantVisualSize(stage);
+  const { prev: prevStageXp, next: nextStageXp } = getStageXpBounds(stage);
+
+  // M11: Consistência de Atividade Recente (SAT) e Saúde da Árvore
+  const { sat, recentActionsCount } = calculateRecentActivityScore(
+    areaTasks,
+    subtasks || [],
+    areaSessions,
+    areaCompletions
+  );
+
+  const healthStatus = calculateHealthStatus(sat);
   const currentProgress = getAreaProgress(areaTasks, area.id);
-  
+
   const hoursDedicated = Math.round(totalMinutes / 60);
 
   // Calcular última atividade (incluindo as sessões)
@@ -158,6 +195,11 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   });
   const maxTime = Math.max(...dates);
   const lastActivityAt = new Date(maxTime).toISOString();
+
+  const xpMin = prevStageXp;
+  const xpMax = nextStageXp;
+  const isMaxLevel = stage === 'MAJESTIC';
+  const xpProgress = isMaxLevel ? 100 : Math.min(100, Math.max(0, Math.round(((xp - xpMin) / (xpMax - xpMin)) * 100)));
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 animate-fade-in">
@@ -185,10 +227,26 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
             <h2 className="text-lg font-bold text-zinc-800 dark:text-white border-b border-zinc-100 dark:border-zinc-900 pb-3">
               Árvore de Cultivo
             </h2>
-            
+
             {/* Visual da Árvore */}
             <div className="h-56 flex items-center justify-center bg-zinc-100/30 dark:bg-zinc-950/20 rounded-2xl relative p-6">
-              <PlantVisual stage={stage} visualSize={visualSize} animated />
+              <PlantVisual stage={stage} visualSize={visualSize} healthStatus={healthStatus} animated />
+            </div>
+
+            {/* Progresso de Cultivo (XP) */}
+            <div className="space-y-1.5 text-left border-b border-zinc-100 dark:border-zinc-900 pb-4">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-zinc-500 dark:text-zinc-400">Progresso do Cultivo</span>
+                <span className="text-emerald-600 dark:text-emerald-450">
+                  {isMaxLevel ? `${xp} XP` : `${xp} / ${xpMax} XP (${xpProgress}%)`}
+                </span>
+              </div>
+              <div className="w-full bg-zinc-200 dark:bg-zinc-850 h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${xpProgress}%` }}
+                />
+              </div>
             </div>
 
             {/* Painel Estatístico Acumulado */}
@@ -198,10 +256,6 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
                 <span className="font-bold text-zinc-800 dark:text-white">{getStageLabel(stage)}</span>
               </div>
               <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-900/50 pb-2">
-                <span className="text-zinc-500 dark:text-zinc-400">Tamanho:</span>
-                <span className="font-bold text-zinc-800 dark:text-white">{getVisualSizeLabel(visualSize)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-900/50 pb-2">
                 <span className="text-zinc-500 dark:text-zinc-400">Frequência/Saúde:</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getHealthStatusColorClass(healthStatus)}`}>
                   {getHealthStatusLabel(healthStatus)}
@@ -209,9 +263,13 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
               </div>
               <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-900/50 pb-2">
                 <span className="text-zinc-500 dark:text-zinc-400">Esforço Total:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="font-bold text-emerald-600 dark:text-emerald-450">
                   {hoursDedicated > 0 ? `${hoursDedicated} ${hoursDedicated === 1 ? 'hora' : 'horas'}` : `${totalMinutes} min`}
                 </span>
+              </div>
+              <div className="flex justify-between items-center text-sm border-b border-zinc-100 dark:border-zinc-900/50 pb-2">
+                <span className="text-zinc-500 dark:text-zinc-400">Atividade Recente:</span>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">{recentActionsCount} ações</span>
               </div>
               <div className="flex justify-between items-center text-sm pb-1">
                 <span className="text-zinc-500 dark:text-zinc-400">Última Atividade:</span>
@@ -223,7 +281,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
             <div className="border-t border-zinc-100 dark:border-zinc-900 pt-4 text-left space-y-2">
               {currentProgress !== null ? (
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="flex justify-between text-xs font-bold text-emerald-600 dark:text-emerald-450">
                     <span>Progresso das Tarefas Atuais</span>
                     <span>{currentProgress}%</span>
                   </div>
@@ -235,7 +293,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-center font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-100/40 dark:bg-zinc-950/20 py-2 rounded-lg border border-dashed border-zinc-200/55 dark:border-zinc-800/55">
+                <div className="text-xs text-center font-semibold text-zinc-400 dark:text-zinc-550 bg-zinc-100/40 dark:bg-zinc-950/20 py-2 rounded-lg border border-dashed border-zinc-200/55 dark:border-zinc-800/55">
                   📭 Sem tarefas ativas no momento
                 </div>
               )}

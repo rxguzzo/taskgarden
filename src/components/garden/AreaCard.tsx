@@ -8,7 +8,7 @@ import { formatFriendlyDate } from '../../utils/date';
 import {
   getHealthStatusColorClass,
   getHealthStatusLabel,
-  getVisualSizeLabel
+  getStageLabel
 } from '../../domain/growth/rules';
 import { LifeAreaSummary } from '../../domain/growth/types';
 
@@ -33,6 +33,11 @@ export function AreaCard({ area, timeLabel }: AreaCardProps) {
   };
 
   const showLoading = isPending || isNavigating;
+
+  const xpMin = area.prevStageXp;
+  const xpMax = area.nextStageXp;
+  const isMaxLevel = area.stage === 'MAJESTIC';
+  const xpProgress = isMaxLevel ? 100 : Math.min(100, Math.max(0, Math.round(((area.xp - xpMin) / (xpMax - xpMin)) * 100)));
 
   return (
     <div
@@ -62,69 +67,69 @@ export function AreaCard({ area, timeLabel }: AreaCardProps) {
       <div>
         {/* Nome da Área e Indicador de Saúde */}
         <div className="flex justify-between items-start gap-2">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-            {area.name}
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {area.name}
+            </h2>
+            <p className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold mt-0.5">
+              {getStageLabel(area.stage)}
+            </p>
+          </div>
           <span
-            className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${getHealthStatusColorClass(area.healthStatus)}`}
+            className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${getHealthStatusColorClass(area.healthStatus)}`}
           >
             {getHealthStatusLabel(area.healthStatus)}
           </span>
         </div>
 
         {/* Descrição Curta */}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-1 min-h-[2rem]">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-2 min-h-[2.25rem]">
           {area.description || 'Sem descrição cadastrada.'}
         </p>
 
         {/* Renderização da Árvore */}
         <div className="h-40 flex items-center justify-center bg-zinc-100/30 dark:bg-zinc-950/20 rounded-xl my-4 relative p-4 group-hover:bg-emerald-500/5 transition-colors">
-          <PlantVisual stage={area.stage} visualSize={area.visualSize} animated />
+          <PlantVisual stage={area.stage} visualSize={area.visualSize} healthStatus={area.healthStatus} animated />
         </div>
 
-        {/* Dados Acumulados Históricos */}
-        <div className="grid grid-cols-2 gap-2 text-xs bg-zinc-100/50 dark:bg-zinc-950/40 p-2.5 rounded-xl border border-zinc-100/50 dark:border-zinc-900/50">
-          <div>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-semibold">Tempo Real</span>
-            <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{timeLabel}</p>
+        {/* Progresso de Cultivo (XP) */}
+        <div className="space-y-1.5 my-3">
+          <div className="flex justify-between text-[10px] font-bold">
+            <span className="text-zinc-400 dark:text-zinc-550 uppercase font-semibold">Progresso do Cultivo</span>
+            <span className="text-emerald-600 dark:text-emerald-450">
+              {isMaxLevel ? `${area.xp} XP` : `${area.xp} / ${xpMax} XP (${xpProgress}%)`}
+            </span>
           </div>
-          <div>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-550 uppercase font-semibold">Tamanho</span>
-            <p className="font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{getVisualSizeLabel(area.visualSize)}</p>
+          <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+            <div
+              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${xpProgress}%` }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Estatísticas de Tarefas */}
-      <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-900 space-y-3">
-        <div className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span>Ativas: <strong>{area.activeTasksCount}</strong></span>
-          <span>Concluídas: <strong>{area.completedTasksCount}</strong></span>
+      {/* Estatísticas e Atividade */}
+      <div className="mt-2 pt-3 border-t border-zinc-100 dark:border-zinc-900 space-y-3">
+        <div className="grid grid-cols-3 gap-1 text-[10px] bg-zinc-50/50 dark:bg-zinc-950/40 p-2 rounded-xl border border-zinc-100/50 dark:border-zinc-900/40 text-center">
+          <div>
+            <span className="text-zinc-400 block font-medium">Foco</span>
+            <span className="font-bold text-zinc-700 dark:text-zinc-300">{timeLabel}</span>
+          </div>
+          <div>
+            <span className="text-zinc-400 block font-medium">Sementes</span>
+            <span className="font-bold text-zinc-700 dark:text-zinc-300">{area.completedTasksCount}</span>
+          </div>
+          <div>
+            <span className="text-zinc-400 block font-medium">Recente</span>
+            <span className="font-bold text-zinc-700 dark:text-zinc-300">{area.recentActionsCount}</span>
+          </div>
         </div>
 
-        {/* Barra de Progresso ou Mensagem "Sem tarefas ativas" */}
-        {area.currentProgress !== null ? (
-          <div className="space-y-1">
-            <div className="flex justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-              <span>Progresso Atual</span>
-              <span>{area.currentProgress}%</span>
-            </div>
-            <div className="w-full bg-zinc-200 dark:bg-zinc-850 h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-emerald-50 h-full rounded-full transition-all duration-500"
-                style={{ width: `${area.currentProgress}%` }}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="text-[10px] text-center font-semibold text-zinc-400 dark:text-zinc-550 bg-zinc-100/40 dark:bg-zinc-950/20 py-1.5 rounded-lg border border-dashed border-zinc-200/55 dark:border-zinc-800/55">
-            📭 Sem tarefas ativas
-          </div>
-        )}
-
         {/* Última Atividade */}
-        <div className="text-[10px] text-right text-zinc-400 mt-1">
-          Atividade em: {formatFriendlyDate(area.lastActivityAt)}
+        <div className="text-[9px] text-zinc-450 dark:text-zinc-550 flex justify-between items-center">
+          <span>{area.activeTasksCount} tarefas ativas</span>
+          <span>Atividade: {formatFriendlyDate(area.lastActivityAt)}</span>
         </div>
       </div>
     </div>

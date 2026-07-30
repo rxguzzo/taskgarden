@@ -7,7 +7,10 @@ import {
   calculatePlantStage,
   calculatePlantVisualSize,
   calculateHealthStatus,
-  getAreaProgress
+  getAreaProgress,
+  calculateAreaXp,
+  calculateRecentActivityScore,
+  getStageXpBounds
 } from '../../../domain/growth/rules';
 import { LifeAreaSummary } from '../../../domain/growth/types';
 
@@ -66,6 +69,27 @@ export default async function GardenPage() {
     console.error('Erro ao buscar sessões de trabalho:', sessionsError);
   }
 
+  // Buscar todas as rotinas (habits) ativas do usuário
+  const { data: habits, error: habitsError } = await supabase
+    .from('habits')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null);
+
+  if (habitsError) {
+    console.error('Erro ao buscar rotinas:', habitsError);
+  }
+
+  // Buscar todas as conclusões de rotina (habit_completions) do usuário
+  const { data: habitCompletions, error: completionsError } = await supabase
+    .from('habit_completions')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (completionsError) {
+    console.error('Erro ao buscar conclusões de rotinas:', completionsError);
+  }
+
   const allSessions = workSessions || [];
 
   // Mapear áreas para summaries reais
@@ -85,11 +109,40 @@ export default async function GardenPage() {
     const completedTasksCount = completedTasks.length;
     const prunedTasksCount = prunedTasks.length;
 
+    // Obter hábitos e subtarefas para esta área
+    const areaHabits = (habits || []).filter((h) => h.life_area_id === area.id);
+    const areaCompletions = (habitCompletions || []).filter((c) =>
+      areaHabits.some((h) => h.id === c.habit_id)
+    );
+    const habitCompletionsCount = areaCompletions.length;
+
+    const areaSubtasks = (subtasks || []).filter((s) => s.life_area_id === area.id);
+    const completedSubtasksCount = areaSubtasks.filter((s) => s.is_completed).length;
+
     // M3: Soma de minutos reais das sessões daquela área
     const totalMinutes = areaSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
-    const stage = calculatePlantStage(totalMinutes);
-    const visualSize = calculatePlantVisualSize(stage, totalMinutes);
-    const healthStatus = calculateHealthStatus(activeTasksCount);
+
+    // M11: Cálculo de XP e Estágio da Árvore
+    const xp = calculateAreaXp(
+      completedTasksCount,
+      completedSubtasksCount,
+      totalMinutes,
+      habitCompletionsCount
+    );
+
+    const stage = calculatePlantStage(xp);
+    const visualSize = calculatePlantVisualSize(stage);
+    const { prev: prevStageXp, next: nextStageXp } = getStageXpBounds(stage);
+
+    // M11: Consistência de Atividade Recente (SAT) e Saúde da Árvore
+    const { sat, recentActionsCount } = calculateRecentActivityScore(
+      areaTasks,
+      areaSubtasks,
+      areaSessions,
+      areaCompletions
+    );
+
+    const healthStatus = calculateHealthStatus(sat);
     const currentProgress = getAreaProgress(areaTasks, area.id);
 
     // Calcular data da última atividade (incluindo as sessões)
@@ -114,6 +167,10 @@ export default async function GardenPage() {
       completedTasksCount,
       prunedTasksCount,
       lastActivityAt,
+      xp,
+      nextStageXp,
+      prevStageXp,
+      recentActionsCount,
     };
   });
 
