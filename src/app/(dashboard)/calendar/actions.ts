@@ -251,3 +251,126 @@ export async function archiveHabitAction(habitId: string): Promise<ActionState> 
     return { success: false, error: 'Ocorreu um erro inesperado ao arquivar a rotina.' };
   }
 }
+
+/**
+ * Atualiza uma rotina existente no banco de dados.
+ */
+export async function updateHabitAction(
+  habitId: string,
+  _previousState: ActionState | null,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const title = formData.get('title')?.toString().trim();
+    const description = formData.get('description')?.toString().trim() || null;
+    const lifeAreaId = formData.get('life_area_id')?.toString();
+    const frequency = formData.get('frequency')?.toString() as HabitFrequency;
+
+    if (!title || title.length < 1 || title.length > 255) {
+      return { success: false, error: 'O título deve ter entre 1 e 255 caracteres.' };
+    }
+
+    if (description && description.length > 1000) {
+      return { success: false, error: 'A descrição deve ter no máximo 1000 caracteres.' };
+    }
+
+    if (!lifeAreaId) {
+      return { success: false, error: 'A Área da Vida é obrigatória.' };
+    }
+
+    if (!frequency || !ALLOWED_FREQUENCIES.includes(frequency)) {
+      return { success: false, error: 'Frequência inválida.' };
+    }
+
+    let customDaysParsed: number[] = [];
+    let dayOfMonthParsed: number | null = null;
+
+    if (frequency === 'CUSTOM_WEEKLY') {
+      const daysInput = formData.getAll('custom_days');
+      if (daysInput.length === 0) {
+        return { success: false, error: 'Selecione pelo menos um dia da semana para a frequência personalizada.' };
+      }
+
+      const parsed = daysInput.map(d => parseInt(d.toString(), 10));
+      const hasInvalid = parsed.some(d => isNaN(d) || d < 0 || d > 6);
+      if (hasInvalid) {
+        return { success: false, error: 'Dias da semana inválidos selecionados.' };
+      }
+
+      customDaysParsed = Array.from(new Set(parsed)).sort((a, b) => a - b);
+    } else if (frequency === 'MONTHLY') {
+      const domInput = formData.get('day_of_month')?.toString();
+      if (!domInput) {
+        return { success: false, error: 'O dia do mês é obrigatório para a frequência mensal.' };
+      }
+
+      const domInt = parseInt(domInput, 10);
+      if (isNaN(domInt) || domInt < 1 || domInt > 31) {
+        return { success: false, error: 'O dia do mês deve estar entre 1 e 31.' };
+      }
+      dayOfMonthParsed = domInt;
+    }
+
+    const supabase = await getServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Sessão expirada. Por favor, faça login novamente.' };
+    }
+
+    const { data: existingHabit, error: habitError } = await supabase
+      .from('habits')
+      .select('id, life_area_id')
+      .eq('id', habitId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (habitError || !existingHabit) {
+      return { success: false, error: 'Rotina não encontrada ou sem permissão.' };
+    }
+
+    const { data: area, error: areaError } = await supabase
+      .from('life_areas')
+      .select('id')
+      .eq('id', lifeAreaId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (areaError || !area) {
+      return { success: false, error: 'Área da Vida inválida ou sem permissão.' };
+    }
+
+    const { error: updateError } = await supabase
+      .from('habits')
+      .update({
+        title,
+        description,
+        life_area_id: lifeAreaId,
+        frequency,
+        custom_days: customDaysParsed,
+        day_of_month: dayOfMonthParsed,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', habitId)
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      console.error('Erro ao atualizar rotina:', updateError);
+      return { success: false, error: 'Erro ao salvar alterações da rotina.' };
+    }
+
+    revalidatePath('/calendar');
+    revalidatePath('/garden');
+    revalidatePath(`/garden/${existingHabit.life_area_id}`);
+    if (existingHabit.life_area_id !== lifeAreaId) {
+      revalidatePath(`/garden/${lifeAreaId}`);
+    }
+
+    return { success: true, message: 'Rotina atualizada com sucesso!' };
+  } catch (err) {
+    console.error('Exceção no updateHabitAction:', err);
+    return { success: false, error: 'Ocorreu um erro inesperado ao atualizar a rotina.' };
+  }
+}

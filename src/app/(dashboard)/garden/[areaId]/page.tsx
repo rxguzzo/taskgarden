@@ -48,6 +48,19 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     notFound();
   }
 
+  // Buscar todas as áreas da vida do usuário (necessário para a edição de rotinas)
+  const { data: lifeAreas, error: lifeAreasError } = await supabase
+    .from('life_areas')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  if (lifeAreasError) {
+    console.error('Erro ao buscar áreas da vida:', lifeAreasError);
+  }
+
+
   // Filtra as tarefas associadas a esta área
   const { data: tasks, error: tasksError } = await supabase
     .from('tasks')
@@ -234,7 +247,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
         <div className="lg:col-span-8 min-w-0 w-full space-y-6">
           <AreaTasksList tasks={areaTasks} sessions={areaSessions} area={area} />
 
-          <AreaRoutinesList habits={habits || []} completions={completions || []} />
+          <AreaRoutinesList habits={habits || []} completions={completions || []} lifeAreas={lifeAreas || []} />
         </div>
       </div>
     </div>
