@@ -79,3 +79,41 @@ export function formatFriendlyDate(isoString: string | undefined | null): string
     return 'Data inválida';
   }
 }
+
+export function getIsoWeekKey(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  // Ajusta para a quinta-feira da mesma semana (semana ISO começa na segunda)
+  // getDay() retorna 0 para Domingo, mudamos Domingo para 7
+  const dayNum = d.getDay() || 7;
+  d.setDate(d.getDate() + 4 - dayNum);
+
+  const year = d.getFullYear();
+  // Primeiro dia do ano ISO
+  const firstDayOfYear = new Date(year, 0, 1);
+  const firstDayOfWeek = firstDayOfYear.getDay() || 7;
+
+  // Se o dia 1 de Jan for sex/sáb/dom, a semana 1 começa na próxima segunda-feira.
+  // Caso contrário, a semana 1 começa na segunda anterior.
+  let startOffset = 0;
+  if (firstDayOfWeek > 4) {
+    // Começa na segunda seguinte
+    startOffset = (8 - firstDayOfWeek) * 24 * 60 * 60 * 1000;
+  } else {
+    // Começa na segunda anterior
+    startOffset = (1 - firstDayOfWeek) * 24 * 60 * 60 * 1000;
+  }
+
+  const weekStart = firstDayOfYear.getTime() + startOffset;
+  const diff = d.getTime() - weekStart;
+
+  let weekNumber = 1;
+  if (diff >= 0) {
+    weekNumber = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
+  } else {
+    // Se caiu antes da semana 1 do ano atual, pertence à última semana do ano anterior
+    // Repetimos o cálculo para o ano anterior
+    return getIsoWeekKey(`${year - 1}-12-28`);
+  }
+
+  return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+}

@@ -110,7 +110,7 @@ export interface DemoAreaTask {
   pruneReason?: string;
 }
 
-export type HabitFrequency = 'DAILY' | 'WEEKDAYS' | 'CUSTOM_WEEKLY' | 'MONTHLY';
+export type HabitFrequency = 'DAILY' | 'WEEKDAYS' | 'CUSTOM_WEEKLY' | 'WEEKLY' | 'MONTHLY';
 
 export interface Habit {
   id: string;
@@ -132,5 +132,7 @@ export interface HabitCompletion {
   habit_id: string;
   user_id: string;
   completed_date: string; // Formato YYYY-MM-DD puro
+  period_type: 'DAY' | 'WEEK' | 'MONTH';
+  period_key: string;
   created_at: string;
 }
