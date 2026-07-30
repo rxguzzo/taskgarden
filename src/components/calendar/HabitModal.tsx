@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useActionState, useEffect } from 'react';
-import { LifeArea, HabitFrequency } from '../../domain/growth/types';
+import { LifeArea, Habit, HabitFrequency } from '../../domain/growth/types';
 import { TreeLoading } from '../ui/TreeLoading';
-import { createHabitAction } from '../../app/(dashboard)/calendar/actions';
+import { createHabitAction, updateHabitAction } from '../../app/(dashboard)/calendar/actions';
+import { ActionState } from '../../app/(dashboard)/tasks/actions';
 
-interface CreateHabitModalProps {
+interface HabitModalProps {
   lifeAreas: LifeArea[];
   onClose: () => void;
+  habitToEdit?: Habit;
 }
 
 const WEEKDAYS = [
@@ -20,10 +22,13 @@ const WEEKDAYS = [
   { value: 6, label: 'Sáb' }
 ];
 
-export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) {
-  const [state, formAction, isPending] = useActionState(createHabitAction, null);
+export function HabitModal({ lifeAreas, onClose, habitToEdit }: HabitModalProps) {
+  const actionFn = habitToEdit
+    ? (prevState: ActionState | null, formData: FormData) => updateHabitAction(habitToEdit.id, prevState, formData)
+    : createHabitAction;
 
-  const [frequency, setFrequency] = React.useState<HabitFrequency>('DAILY');
+  const [state, formAction, isPending] = useActionState(actionFn, null);
+  const [frequency, setFrequency] = React.useState<HabitFrequency>(habitToEdit?.frequency || 'DAILY');
 
   useEffect(() => {
     if (state?.success) {
@@ -46,8 +51,14 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
         </button>
 
         <div className="mb-6">
-          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Nova Rotina</h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Crie tarefas recorrentes que aparecem nos dias programados.</p>
+          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+            {habitToEdit ? 'Editar Rotina' : 'Nova Rotina'}
+          </h3>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+            {habitToEdit
+              ? 'Altere as configurações da sua rotina de cultivo.'
+              : 'Crie tarefas recorrentes que aparecem nos dias programados.'}
+          </p>
         </div>
 
         <form action={formAction} className="space-y-4">
@@ -66,6 +77,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
               name="title"
               type="text"
               required
+              defaultValue={habitToEdit?.title || ''}
               placeholder="Ex: Treinar programação"
               disabled={isPending}
               className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -80,6 +92,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
               id="description"
               name="description"
               rows={2}
+              defaultValue={habitToEdit?.description || ''}
               placeholder="Descrição ou notas adicionais..."
               disabled={isPending}
               className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
@@ -95,6 +108,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
                 id="life_area_id"
                 name="life_area_id"
                 required
+                defaultValue={habitToEdit?.life_area_id || ''}
                 disabled={isPending}
                 className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -144,6 +158,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
                       type="checkbox"
                       name="custom_days"
                       value={day.value}
+                      defaultChecked={habitToEdit?.custom_days?.includes(day.value)}
                       disabled={isPending}
                       className="w-3.5 h-3.5 rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 accent-emerald-650 cursor-pointer disabled:cursor-not-allowed"
                     />
@@ -167,6 +182,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
                 min={1}
                 max={31}
                 required
+                defaultValue={habitToEdit?.day_of_month || ''}
                 placeholder="Ex: 1"
                 disabled={isPending}
                 className="w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed"

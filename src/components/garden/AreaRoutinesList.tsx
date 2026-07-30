@@ -3,19 +3,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
-import { Habit, HabitCompletion } from '../../domain/growth/types';
+import { Habit, HabitCompletion, LifeArea } from '../../domain/growth/types';
 import { toggleHabitCompletionAction, archiveHabitAction } from '../../app/(dashboard)/calendar/actions';
 import { getTodayDateOnly, getIsoWeekKey } from '../../utils/date';
+import { HabitModal } from '../calendar/HabitModal';
 
 interface AreaRoutinesListProps {
   habits: Habit[];
   completions: HabitCompletion[];
+  lifeAreas: LifeArea[];
 }
 
-export function AreaRoutinesList({ habits, completions }: AreaRoutinesListProps) {
+export function AreaRoutinesList({ habits, completions, lifeAreas }: AreaRoutinesListProps) {
   const [localHabits, setLocalHabits] = useState<Habit[]>(habits);
   const [localCompletions, setLocalCompletions] = useState<HabitCompletion[]>(completions);
   const [pendingHabitActionIds, setPendingHabitActionIds] = useState<Record<string, boolean>>({});
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
     setLocalHabits(habits);
@@ -226,22 +229,43 @@ export function AreaRoutinesList({ habits, completions }: AreaRoutinesListProps)
                   </div>
                 </div>
 
-                {/* Botão de Arquivar */}
-                <button
-                  onClick={() => handleArchiveHabit(habit.id)}
-                  disabled={isActionPending}
-                  title="Arquivar rotina"
-                  aria-label={`Arquivar rotina: ${habit.title}`}
-                  className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-950/20 rounded-xl transition-all shrink-0"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                  </svg>
-                </button>
+                {/* Botões de Ação */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setEditingHabit(habit)}
+                    disabled={isActionPending}
+                    title="Editar rotina"
+                    aria-label={`Editar rotina: ${habit.title}`}
+                    className="p-1.5 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-950/20 rounded-xl transition-all shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.83 17.062a4.5 4.5 0 0 1-1.897 1.13L3 19l.893-3.03a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleArchiveHabit(habit.id)}
+                    disabled={isActionPending}
+                    title="Arquivar rotina"
+                    aria-label={`Arquivar rotina: ${habit.title}`}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-950/20 rounded-xl transition-all shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {editingHabit && (
+        <HabitModal
+          lifeAreas={lifeAreas}
+          habitToEdit={editingHabit}
+          onClose={() => setEditingHabit(null)}
+        />
       )}
     </Card>
   );
