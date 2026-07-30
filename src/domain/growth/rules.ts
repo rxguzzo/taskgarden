@@ -38,9 +38,10 @@ export function getStageLabel(stage: PlantStage): string {
   switch (stage) {
     case 'SEED': return 'Semente';
     case 'SPROUT': return 'Broto';
-    case 'SAPLING': return 'Muda';
-    case 'TREE': return 'Árvore';
-    case 'MATURE': return 'Árvore Madura';
+    case 'SAPLING': return 'Árvore Jovem';
+    case 'TREE': return 'Árvore Adulta';
+    case 'STRONG': return 'Árvore Forte';
+    case 'MAJESTIC': return 'Árvore Majestosa';
     default: return 'Desconhecido';
   }
 }
@@ -63,9 +64,9 @@ export function getVisualSizeLabel(size: PlantVisualSize): string {
 export function getHealthStatusLabel(status: HealthStatus): string {
   switch (status) {
     case 'HEALTHY': return 'Saudável';
-    case 'THIRSTY': return 'Com Sede';
+    case 'REGULAR': return 'Regular';
     case 'IDLE': return 'Parada';
-    case 'OVERLOADED': return 'Sobrecarregada';
+    case 'WITHERED': return 'Murcha';
     default: return 'Desconhecido';
   }
 }
@@ -77,12 +78,12 @@ export function getHealthStatusColorClass(status: HealthStatus): string {
   switch (status) {
     case 'HEALTHY':
       return 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20';
-    case 'THIRSTY':
-      return 'bg-sky-500/10 text-sky-800 dark:text-sky-300 border-sky-500/20';
+    case 'REGULAR':
+      return 'bg-green-500/10 text-green-800 dark:text-green-300 border-green-500/20';
     case 'IDLE':
       return 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/20';
-    case 'OVERLOADED':
-      return 'bg-red-500/10 text-red-800 dark:text-red-300 border-red-500/20';
+    case 'WITHERED':
+      return 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/25';
     default:
       return 'bg-zinc-500/10 text-zinc-800 dark:text-zinc-300 border-zinc-500/20';
   }
@@ -109,41 +110,127 @@ export function getAreaPrunedTasksCount(tasks: Task[], areaId: string): number {
   return tasks.filter(t => t.life_area_id === areaId && t.status === 'PRUNED' && t.deleted_at === null).length;
 }
 
-
-
 /**
- * Calcula o estágio de crescimento da árvore (PlantStage) baseado nos minutos reais de dedicação.
+ * Calcula o estágio de crescimento da árvore (PlantStage) baseado no XP total.
  */
-export function calculatePlantStage(totalMinutes: number): PlantStage {
-  if (totalMinutes === 0) return 'SEED';
-  if (totalMinutes <= 120) return 'SPROUT';   // até 2 horas
-  if (totalMinutes <= 360) return 'SAPLING';  // de 2h a 6h
-  if (totalMinutes <= 900) return 'TREE';     // de 6h a 15h
-  return 'MATURE';                            // mais de 15h
+export function calculatePlantStage(xp: number): PlantStage {
+  if (xp < 50) return 'SEED';
+  if (xp < 150) return 'SPROUT';
+  if (xp < 350) return 'SAPLING';
+  if (xp < 700) return 'TREE';
+  if (xp < 1200) return 'STRONG';
+  return 'MAJESTIC';
 }
 
 /**
- * Calcula o tamanho visual da planta (PlantVisualSize) baseado no estágio e minutos totais.
+ * Retorna os limites de XP de um estágio específico.
  */
-export function calculatePlantVisualSize(stage: PlantStage, totalMinutes: number): PlantVisualSize {
+export function getStageXpBounds(stage: PlantStage): { prev: number; next: number } {
+  switch (stage) {
+    case 'SEED': return { prev: 0, next: 50 };
+    case 'SPROUT': return { prev: 50, next: 150 };
+    case 'SAPLING': return { prev: 150, next: 350 };
+    case 'TREE': return { prev: 350, next: 700 };
+    case 'STRONG': return { prev: 700, next: 1200 };
+    case 'MAJESTIC': return { prev: 1200, next: 1200 };
+    default: return { prev: 0, next: 50 };
+  }
+}
+
+/**
+ * Calcula o tamanho visual da planta (PlantVisualSize) baseado no estágio.
+ */
+export function calculatePlantVisualSize(stage: PlantStage): PlantVisualSize {
   if (stage === 'SEED' || stage === 'SPROUT') {
     return 'SMALL';
   }
-  if (stage === 'SAPLING') {
+  if (stage === 'SAPLING' || stage === 'TREE') {
     return 'MEDIUM';
   }
-  if (stage === 'TREE') {
-    return totalMinutes < 600 ? 'MEDIUM' : 'LARGE';
-  }
-  return 'LARGE'; // MATURE
+  return 'LARGE';
 }
 
 /**
- * Calcula o estado de saúde da área (HealthStatus) baseado no número de tarefas ativas.
+ * Calcula o estado de saúde da área (HealthStatus) baseado no score de consistência SAT.
  */
-export function calculateHealthStatus(activeCount: number): HealthStatus {
-  if (activeCount === 0) return 'IDLE';
-  if (activeCount <= 3) return 'HEALTHY';
-  if (activeCount <= 6) return 'THIRSTY';
-  return 'OVERLOADED';
+export function calculateHealthStatus(sat: number): HealthStatus {
+  if (sat >= 5) return 'HEALTHY';
+  if (sat >= 2) return 'REGULAR';
+  if (sat > 0) return 'IDLE';
+  return 'WITHERED';
+}
+
+/**
+ * Calcula o XP de uma área com base nas tarefas, subtarefas concluídas, tempo focado e rotinas cumpridas.
+ */
+export function calculateAreaXp(
+  completedTasksCount: number,
+  completedSubtasksCount: number,
+  totalWorkMinutes: number,
+  habitCompletionsCount: number
+): number {
+  const taskXp = completedTasksCount * 20;
+  const subtaskXp = completedSubtasksCount * 5;
+  const timeXp = Math.floor(totalWorkMinutes / 3);
+  const habitXp = habitCompletionsCount * 10;
+  return taskXp + subtaskXp + timeXp + habitXp;
+}
+
+/**
+ * Calcula o score de atividade recente (últimos 7 dias) para determinar a saúde da área.
+ */
+export function calculateRecentActivityScore(
+  tasks: { status: string; completed_at: string | null }[],
+  subtasks: { is_completed: boolean; completed_at: string | null }[],
+  workSessions: { duration_minutes: number; worked_at: string }[],
+  completions: { completed_date: string }[]
+): { sat: number; recentActionsCount: number } {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().substring(0, 10);
+
+  let sat = 0;
+  let recentActionsCount = 0;
+
+  // 1. Tarefas concluídas nos últimos 7 dias
+  tasks.forEach(t => {
+    if (t.status === 'COMPLETED' && t.completed_at) {
+      const compDate = new Date(t.completed_at);
+      if (compDate >= sevenDaysAgo) {
+        sat += 1;
+        recentActionsCount += 1;
+      }
+    }
+  });
+
+  // 2. Subtarefas concluídas nos últimos 7 dias
+  subtasks.forEach(s => {
+    if (s.is_completed && s.completed_at) {
+      const compDate = new Date(s.completed_at);
+      if (compDate >= sevenDaysAgo) {
+        sat += 0.5;
+        recentActionsCount += 1;
+      }
+    }
+  });
+
+  // 3. Sessões de trabalho nos últimos 7 dias (worked_at no formato YYYY-MM-DD)
+  workSessions.forEach(w => {
+    if (w.worked_at >= sevenDaysAgoStr) {
+      sat += 1;
+      recentActionsCount += 1;
+    }
+  });
+
+  // 4. Conclusões de rotinas nos últimos 7 dias (completed_date no formato YYYY-MM-DD)
+  completions.forEach(c => {
+    if (c.completed_date >= sevenDaysAgoStr) {
+      sat += 1;
+      recentActionsCount += 1;
+    }
+  });
+
+  return { sat, recentActionsCount };
 }

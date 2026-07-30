@@ -1,7 +1,7 @@
-export type PlantStage = 'SEED' | 'SPROUT' | 'SAPLING' | 'TREE' | 'MATURE';
+export type PlantStage = 'SEED' | 'SPROUT' | 'SAPLING' | 'TREE' | 'STRONG' | 'MAJESTIC' | 'MATURE';
 export type PlantVisualSize = 'SMALL' | 'MEDIUM' | 'LARGE';
 
-export type HealthStatus = 'HEALTHY' | 'THIRSTY' | 'IDLE' | 'OVERLOADED';
+export type HealthStatus = 'HEALTHY' | 'REGULAR' | 'IDLE' | 'WITHERED';
 
 export type TaskStatus = 'ACTIVE' | 'COMPLETED' | 'PRUNED';
 export type TaskDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'VERY_HARD';
@@ -55,6 +55,10 @@ export interface LifeAreaSummary extends LifeArea {
   completedTasksCount: number;
   prunedTasksCount: number;
   lastActivityAt: string | null;
+  xp: number;
+  nextStageXp: number;
+  prevStageXp: number;
+  recentActionsCount: number;
 }
 
 export type WorkSessionSource = 'MANUAL' | 'TIMER' | 'CALENDAR_CONFIRMED';

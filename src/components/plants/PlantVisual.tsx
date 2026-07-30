@@ -1,9 +1,10 @@
 import React from 'react';
-import { PlantStage, PlantVisualSize } from '../../domain/growth/types';
+import { PlantStage, PlantVisualSize, HealthStatus } from '../../domain/growth/types';
 
 interface PlantVisualProps {
   stage: PlantStage;
   visualSize: PlantVisualSize;
+  healthStatus?: HealthStatus;
   label?: string;
   animated?: boolean;
   className?: string;
@@ -12,6 +13,7 @@ interface PlantVisualProps {
 export const PlantVisual: React.FC<PlantVisualProps> = ({
   stage,
   visualSize,
+  healthStatus = 'HEALTHY',
   label,
   animated = true,
   className = '',
@@ -201,7 +203,7 @@ export const PlantVisual: React.FC<PlantVisualProps> = ({
           </svg>
         );
 
-      case 'MATURE':
+      case 'STRONG':
         return (
           <svg
             viewBox="0 0 100 100"
@@ -212,7 +214,7 @@ export const PlantVisual: React.FC<PlantVisualProps> = ({
             {/* Solo rico */}
             <ellipse cx="50" cy="85" rx="44" ry="12" fill="#5c4033" opacity="0.9" />
             <ellipse cx="50" cy="83" rx="36" ry="9" fill="#271a11" />
-            
+
             <g className={animationClass} style={{ transformOrigin: '50px 83px' }}>
               {/* Tronco robusto */}
               <path
@@ -236,14 +238,68 @@ export const PlantVisual: React.FC<PlantVisualProps> = ({
                 strokeLinecap="round"
                 fill="none"
               />
-              
+
               {/* Copas detalhadas em camadas de verde */}
               <circle cx="50" cy="18" r="16" fill="#14532d" />
               <circle cx="36" cy="28" r="14" fill="#15803d" />
               <circle cx="64" cy="26" r="15" fill="#22c55e" />
               <circle cx="22" cy="42" r="10" fill="#4ade80" />
               <circle cx="78" cy="35" r="11" fill="#166534" />
-              
+
+              {/* Pequenas flores brancas florescendo */}
+              <circle cx="48" cy="14" r="2.2" fill="#ffffff" />
+              <circle cx="38" cy="24" r="2.2" fill="#ffffff" />
+              <circle cx="60" cy="20" r="2.2" fill="#ffffff" />
+              <circle cx="68" cy="30" r="2.2" fill="#ffffff" />
+              <circle cx="32" cy="34" r="2.2" fill="#ffffff" />
+            </g>
+          </svg>
+        );
+
+      case 'MAJESTIC':
+      case 'MATURE': // Suporte retrocompatível
+        return (
+          <svg
+            viewBox="0 0 100 100"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full h-full"
+          >
+            {/* Solo rico */}
+            <ellipse cx="50" cy="85" rx="44" ry="12" fill="#5c4033" opacity="0.9" />
+            <ellipse cx="50" cy="83" rx="36" ry="9" fill="#271a11" />
+
+            <g className={animationClass} style={{ transformOrigin: '50px 83px' }}>
+              {/* Tronco robusto */}
+              <path
+                d="M50 83 C45 60, 42 45, 50 20"
+                stroke="#451a03"
+                strokeWidth="8"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d="M46 55 Q30 38, 22 42"
+                stroke="#451a03"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <path
+                d="M52 48 Q70 30, 78 35"
+                stroke="#451a03"
+                strokeWidth="4"
+                strokeLinecap="round"
+                fill="none"
+              />
+
+              {/* Copas detalhadas em camadas de verde */}
+              <circle cx="50" cy="18" r="16" fill="#14532d" />
+              <circle cx="36" cy="28" r="14" fill="#15803d" />
+              <circle cx="64" cy="26" r="15" fill="#22c55e" />
+              <circle cx="22" cy="42" r="10" fill="#4ade80" />
+              <circle cx="78" cy="35" r="11" fill="#166534" />
+
               {/* Frutos/Flores de Sucesso (Círculos vermelhos/dourados pequenos) */}
               <circle cx="48" cy="14" r="2.5" fill="#f59e0b" />
               <circle cx="38" cy="24" r="2.5" fill="#ef4444" />
@@ -262,13 +318,22 @@ export const PlantVisual: React.FC<PlantVisualProps> = ({
 
   const defaultLabel = `${stage} (${visualSize})`;
 
+  const filterClasses = {
+    HEALTHY: 'brightness-110 saturate-[1.25]',
+    REGULAR: 'filter-none',
+    IDLE: 'saturate-[0.5] sepia-[0.2] brightness-[0.95]',
+    WITHERED: 'grayscale-[0.8] opacity-80 contrast-[0.9]',
+  };
+
+  const currentFilterClass = filterClasses[healthStatus] || '';
+
   return (
     <div
       className={`flex flex-col items-center justify-center ${className}`}
       role="img"
       aria-label={label || defaultLabel}
     >
-      <div className={`relative transition-transform duration-300 ${currentSizeClass}`}>
+      <div className={`relative transition-all duration-300 ${currentSizeClass} ${currentFilterClass}`}>
         {renderSVG()}
       </div>
     </div>
