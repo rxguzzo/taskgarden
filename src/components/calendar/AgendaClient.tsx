@@ -7,7 +7,7 @@ import { Task, LifeArea, Habit, HabitCompletion } from '../../domain/growth/type
 import { Card } from '../ui/Card';
 import { completeTaskAction } from '../../app/(dashboard)/tasks/actions';
 import { toggleHabitCompletionAction, archiveHabitAction } from '../../app/(dashboard)/calendar/actions';
-import { getTodayDateOnly, toDateOnly, formatDateOnlyBr } from '../../utils/date';
+import { getTodayDateOnly, toDateOnly, formatDateOnlyBr, getIsoWeekKey } from '../../utils/date';
 import { CreateHabitModal } from './CreateHabitModal';
 
 interface AgendaClientProps {
@@ -72,7 +72,7 @@ function getDaysDiff(dateStr1: string, dateStr2: string): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-function getNextOccurrenceDate(habit: Habit, todayStr: string): string {
+function getNextOccurrenceDate(habit: Habit, todayStr: string, completions: HabitCompletion[]): string {
   const today = new Date(todayStr + 'T12:00:00');
   for (let i = 0; i < 366; i++) {
     const current = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
@@ -95,13 +95,29 @@ function getNextOccurrenceDate(habit: Habit, todayStr: string): string {
       case 'CUSTOM_WEEKLY':
         matches = (habit.custom_days || []).includes(dayOfWeek);
         break;
+      case 'WEEKLY':
+        matches = true;
+        break;
       case 'MONTHLY':
         matches = habit.day_of_month === dayOfMonth;
         break;
     }
 
     if (matches) {
-      return currentStr;
+      let isDone = false;
+      if (habit.frequency === 'WEEKLY') {
+        const weekKey = getIsoWeekKey(currentStr);
+        isDone = completions.some(c => c.habit_id === habit.id && c.period_type === 'WEEK' && c.period_key === weekKey);
+      } else if (habit.frequency === 'MONTHLY') {
+        const monthKey = currentStr.substring(0, 7);
+        isDone = completions.some(c => c.habit_id === habit.id && c.period_type === 'MONTH' && c.period_key === monthKey);
+      } else {
+        isDone = completions.some(c => c.habit_id === habit.id && c.period_type === 'DAY' && c.period_key === currentStr);
+      }
+
+      if (!isDone) {
+        return currentStr;
+      }
     }
   }
   return '';
@@ -125,11 +141,35 @@ const getFrequencyLabel = (habit: Habit) => {
       const days = habit.custom_days || [];
       const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
       return `Dias: ${days.map(d => dayNames[d]).join(', ')}`;
+    case 'WEEKLY':
+      return 'Toda semana';
     case 'MONTHLY':
       return `Todo dia ${habit.day_of_month}`;
     default:
       return 'Rotina';
   }
+};
+
+const isHabitCompleted = (habit: Habit, completions: HabitCompletion[], todayStr: string) => {
+  if (habit.frequency === 'WEEKLY') {
+    const weekKey = getIsoWeekKey(todayStr);
+    return completions.some(c => c.habit_id === habit.id && c.period_type === 'WEEK' && c.period_key === weekKey);
+  }
+  if (habit.frequency === 'MONTHLY') {
+    const monthKey = todayStr.substring(0, 7);
+    return completions.some(c => c.habit_id === habit.id && c.period_type === 'MONTH' && c.period_key === monthKey);
+  }
+  return completions.some(c => c.habit_id === habit.id && c.period_type === 'DAY' && c.period_key === todayStr);
+};
+
+const getHabitStatusLabel = (habit: Habit, completed: boolean) => {
+  if (habit.frequency === 'WEEKLY') {
+    return completed ? '✓ Feito nesta semana' : '○ Pendente nesta semana';
+  }
+  if (habit.frequency === 'MONTHLY') {
+    return completed ? '✓ Feito este mês' : '○ Pendente este mês';
+  }
+  return completed ? '✓ Feito hoje' : '○ Pendente hoje';
 };
 
 export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCompletions }: AgendaClientProps) {
@@ -197,11 +237,29 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
     setPendingHabitActionIds(prev => ({ ...prev, [habitId]: true }));
 
     const previousCompletions = [...localCompletions];
-    const isCompleted = localCompletions.some(c => c.habit_id === habitId);
+    const habit = localHabits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    let periodType: 'DAY' | 'WEEK' | 'MONTH' = 'DAY';
+    let periodKey = todayDateStr;
+
+    if (habit.frequency === 'WEEKLY') {
+      periodType = 'WEEK';
+      periodKey = getIsoWeekKey(todayDateStr);
+    } else if (habit.frequency === 'MONTHLY') {
+      periodType = 'MONTH';
+      periodKey = todayDateStr.substring(0, 7);
+    }
+
+    const isCompleted = localCompletions.some(
+      c => c.habit_id === habitId && c.period_type === periodType && c.period_key === periodKey
+    );
 
     // Atualização otimista local
     if (isCompleted) {
-      setLocalCompletions(prev => prev.filter(c => c.habit_id !== habitId));
+      setLocalCompletions(prev => prev.filter(
+        c => !(c.habit_id === habitId && c.period_type === periodType && c.period_key === periodKey)
+      ));
     } else {
       setLocalCompletions(prev => [
         ...prev,
@@ -210,6 +268,8 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
           habit_id: habitId,
           user_id: '',
           completed_date: todayDateStr,
+          period_type: periodType,
+          period_key: periodKey,
           created_at: new Date().toISOString()
         }
       ]);
@@ -489,7 +549,7 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                 </div>
               ) : (
                 todaysHabits.map(habit => {
-                  const isDone = localCompletions.some(c => c.habit_id === habit.id);
+                  const isDone = isHabitCompleted(habit, localCompletions, todayDateStr);
                   const area = areasMap.get(habit.life_area_id);
                   const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
                   const isActionPending = !!pendingHabitActionIds[habit.id];
@@ -559,7 +619,7 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                             <span className={`text-[9px] font-bold ${
                               isDone ? 'text-emerald-600 dark:text-emerald-450 font-bold' : 'text-zinc-400 dark:text-zinc-550'
                             }`}>
-                              {isDone ? '✓ Feito hoje' : '○ Pendente hoje'}
+                              {getHabitStatusLabel(habit, isDone)}
                             </span>
                           </div>
                         </div>
@@ -741,7 +801,7 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                   const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
                   const isActionPending = !!pendingHabitActionIds[habit.id];
 
-                  const nextDateStr = getNextOccurrenceDate(habit, todayDateStr);
+                  const nextDateStr = getNextOccurrenceDate(habit, todayDateStr, localCompletions);
                   const formattedNext = formatNextOccurrence(nextDateStr, todayDateStr);
 
                   return (

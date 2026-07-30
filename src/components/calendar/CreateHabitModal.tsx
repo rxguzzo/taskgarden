@@ -23,7 +23,7 @@ const WEEKDAYS = [
 export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) {
   const [state, formAction, isPending] = useActionState(createHabitAction, null);
 
-  const [frequency, setFrequency] = React.useState<'DAILY' | 'WEEKDAYS' | 'CUSTOM_WEEKLY' | 'MONTHLY'>('DAILY');
+  const [frequency, setFrequency] = React.useState<HabitFrequency>('DAILY');
 
   useEffect(() => {
     if (state?.success) {
@@ -122,6 +122,7 @@ export function CreateHabitModal({ lifeAreas, onClose }: CreateHabitModalProps) 
                 <option value="DAILY">Todos os dias</option>
                 <option value="WEEKDAYS">Segunda a sexta</option>
                 <option value="CUSTOM_WEEKLY">Dias específicos</option>
+                <option value="WEEKLY">Toda semana</option>
                 <option value="MONTHLY">Mensal</option>
               </select>
             </div>

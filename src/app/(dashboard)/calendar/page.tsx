@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
 import { AgendaClient } from '../../../components/calendar/AgendaClient';
 import { Task, LifeArea, Habit, HabitCompletion } from '../../../domain/growth/types';
-import { getTodayDateOnly } from '../../../utils/date';
+import { getTodayDateOnly, getIsoWeekKey } from '../../../utils/date';
 
 export const revalidate = 0;
 
@@ -54,12 +54,15 @@ export default async function CalendarPage() {
     console.error('Erro ao buscar rotinas para a agenda:', habitsError);
   }
 
-  // 4. Buscar as conclusões das rotinas de hoje
+  // 4. Buscar as conclusões das rotinas dos períodos atuais (DAY, WEEK, MONTH)
+  const currentWeekKey = getIsoWeekKey(todayStr);
+  const currentMonthKey = todayStr.substring(0, 7);
+
   const { data: completions, error: completionsError } = await supabase
     .from('habit_completions')
     .select('*')
     .eq('user_id', user.id)
-    .eq('completed_date', todayStr);
+    .or(`and(period_type.eq.DAY,period_key.eq.${todayStr}),and(period_type.eq.WEEK,period_key.eq.${currentWeekKey}),and(period_type.eq.MONTH,period_key.eq.${currentMonthKey})`);
 
   if (completionsError) {
     console.error('Erro ao buscar conclusões de rotinas para a agenda:', completionsError);

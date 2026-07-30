@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { getServerClient } from '../../../services/supabase/server';
 import { ActionState } from '../tasks/actions';
 import { HabitFrequency } from '../../../domain/growth/types';
-import { getTodayDateOnly } from '../../../utils/date';
+import { getTodayDateOnly, getIsoWeekKey } from '../../../utils/date';
 
-const ALLOWED_FREQUENCIES: HabitFrequency[] = ['DAILY', 'WEEKDAYS', 'CUSTOM_WEEKLY', 'MONTHLY'];
+const ALLOWED_FREQUENCIES: HabitFrequency[] = ['DAILY', 'WEEKDAYS', 'CUSTOM_WEEKLY', 'WEEKLY', 'MONTHLY'];
 
 /**
  * Cria uma nova rotina (Hábito) no banco vinculada a uma Área da Vida.
@@ -143,7 +143,7 @@ export async function toggleHabitCompletionAction(
     // 2. Validar se o Hábito pertence ao usuário e não está deletado
     const { data: habit, error: habitError } = await supabase
       .from('habits')
-      .select('id')
+      .select('id, frequency')
       .eq('id', habitId)
       .eq('user_id', user.id)
       .is('deleted_at', null)
@@ -153,13 +153,25 @@ export async function toggleHabitCompletionAction(
       return { success: false, error: 'Rotina não encontrada.' };
     }
 
-    // 3. Verificar se já existe a conclusão registrada para este dia
+    let periodType: 'DAY' | 'WEEK' | 'MONTH' = 'DAY';
+    let periodKey = dateStr;
+
+    if (habit.frequency === 'WEEKLY') {
+      periodType = 'WEEK';
+      periodKey = getIsoWeekKey(dateStr);
+    } else if (habit.frequency === 'MONTHLY') {
+      periodType = 'MONTH';
+      periodKey = dateStr.substring(0, 7);
+    }
+
+    // 3. Verificar se já existe a conclusão registrada para este período
     const { data: existing, error: selectError } = await supabase
       .from('habit_completions')
       .select('id')
       .eq('habit_id', habitId)
       .eq('user_id', user.id)
-      .eq('completed_date', dateStr)
+      .eq('period_type', periodType)
+      .eq('period_key', periodKey)
       .maybeSingle();
 
     if (selectError) {
@@ -186,7 +198,9 @@ export async function toggleHabitCompletionAction(
         .insert({
           habit_id: habitId,
           user_id: user.id,
-          completed_date: dateStr
+          completed_date: dateStr,
+          period_type: periodType,
+          period_key: periodKey
         });
 
       if (insertError) {
