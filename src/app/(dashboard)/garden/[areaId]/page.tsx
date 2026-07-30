@@ -3,9 +3,10 @@ import { notFound, redirect } from 'next/navigation';
 import { getServerClient } from '../../../../services/supabase/server';
 import { Card } from '../../../../components/ui/Card';
 import { PlantVisual } from '../../../../components/plants/PlantVisual';
-import { formatFriendlyDate } from '../../../../utils/date';
+import { formatFriendlyDate, getTodayDateOnly, getIsoWeekKey } from '../../../../utils/date';
 import { AreaHeaderActions } from '../../../../components/garden/AreaHeaderActions';
 import { AreaTasksList } from '../../../../components/garden/AreaTasksList';
+import { AreaRoutinesList } from '../../../../components/garden/AreaRoutinesList';
 import { BackButton } from '../../../../components/garden/BackButton';
 import { 
   getStageLabel, 
@@ -92,6 +93,35 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   }
 
   const areaSessions = sessions || [];
+
+  // Buscar rotinas (habits) ativas vinculadas a esta área
+  const { data: habits, error: habitsError } = await supabase
+    .from('habits')
+    .select('*')
+    .eq('life_area_id', area.id)
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (habitsError) {
+    console.error('Erro ao buscar rotinas da área:', habitsError);
+  }
+
+  // Buscar as conclusões para os períodos correntes
+  const todayStr = getTodayDateOnly();
+  const currentWeekKey = getIsoWeekKey(todayStr);
+  const currentMonthKey = todayStr.substring(0, 7);
+
+  const { data: completions, error: completionsError } = await supabase
+    .from('habit_completions')
+    .select('*')
+    .eq('user_id', user.id)
+    .or(`and(period_type.eq.DAY,period_key.eq.${todayStr}),and(period_type.eq.WEEK,period_key.eq.${currentWeekKey}),and(period_type.eq.MONTH,period_key.eq.${currentMonthKey})`);
+
+  if (completionsError) {
+    console.error('Erro ao buscar conclusões das rotinas da área:', completionsError);
+  }
+
 
   // Deriva dados dinamicamente usando as regras de crescimento reais
   const activeCount = activeTasks.length;
@@ -200,9 +230,11 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
           </Card>
         </div>
 
-        {/* Lado Direito: Listagem de Tarefas Real-time/Base de Dados */}
-        <div className="lg:col-span-8 min-w-0 w-full">
+        {/* Lado Direito: Listagem de Tarefas e Rotinas */}
+        <div className="lg:col-span-8 min-w-0 w-full space-y-6">
           <AreaTasksList tasks={areaTasks} sessions={areaSessions} area={area} />
+
+          <AreaRoutinesList habits={habits || []} completions={completions || []} />
         </div>
       </div>
     </div>
