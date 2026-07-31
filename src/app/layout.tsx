@@ -15,6 +15,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TaskGarden — Gestão de Tarefas Gamificada",
   description: "Transforme suas tarefas e objetivos diários em plantas e cultive o seu jardim digital de produtividade.",
+  applicationName: "TaskGarden",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TaskGarden",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#047857",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
