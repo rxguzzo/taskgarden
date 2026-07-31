@@ -161,19 +161,21 @@ export function calculateHealthStatus(sat: number): HealthStatus {
 }
 
 /**
- * Calcula o XP de uma área com base nas tarefas, subtarefas concluídas, tempo focado e rotinas cumpridas.
+ * Calcula o XP de uma área com base nas tarefas, subtarefas concluídas, tempo focado, rotinas cumpridas e eventos pontuais.
  */
 export function calculateAreaXp(
   completedTasksCount: number,
   completedSubtasksCount: number,
   totalWorkMinutes: number,
-  habitCompletionsCount: number
+  habitCompletionsCount: number,
+  completedEventsCount: number = 0
 ): number {
   const taskXp = completedTasksCount * 20;
   const subtaskXp = completedSubtasksCount * 5;
   const timeXp = Math.floor(totalWorkMinutes / 3);
   const habitXp = habitCompletionsCount * 10;
-  return taskXp + subtaskXp + timeXp + habitXp;
+  const eventXp = completedEventsCount * 15;
+  return taskXp + subtaskXp + timeXp + habitXp + eventXp;
 }
 
 /**
@@ -183,7 +185,8 @@ export function calculateRecentActivityScore(
   tasks: { status: string; completed_at: string | null }[],
   subtasks: { is_completed: boolean; completed_at: string | null }[],
   workSessions: { duration_minutes: number; worked_at: string }[],
-  completions: { completed_date: string }[]
+  completions: { completed_date: string }[],
+  events: { status: string; completed_at: string | null }[] = []
 ): { sat: number; recentActionsCount: number } {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -229,6 +232,17 @@ export function calculateRecentActivityScore(
     if (c.completed_date >= sevenDaysAgoStr) {
       sat += 1;
       recentActionsCount += 1;
+    }
+  });
+
+  // 5. Eventos concluídos nos últimos 7 dias
+  events.forEach(e => {
+    if (e.status === 'COMPLETED' && e.completed_at) {
+      const compDate = new Date(e.completed_at);
+      if (compDate >= sevenDaysAgo) {
+        sat += 1;
+        recentActionsCount += 1;
+      }
     }
   });
 

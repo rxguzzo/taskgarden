@@ -3,18 +3,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { Task, LifeArea, Habit, HabitCompletion } from '../../domain/growth/types';
+import { Task, LifeArea, Habit, HabitCompletion, LifeAreaEvent } from '../../domain/growth/types';
 import { Card } from '../ui/Card';
 import { completeTaskAction } from '../../app/(dashboard)/tasks/actions';
-import { toggleHabitCompletionAction, archiveHabitAction } from '../../app/(dashboard)/calendar/actions';
+import { toggleHabitCompletionAction, archiveHabitAction, toggleEventCompletionAction, archiveEventAction } from '../../app/(dashboard)/calendar/actions';
 import { getTodayDateOnly, toDateOnly, formatDateOnlyBr, getIsoWeekKey } from '../../utils/date';
 import { HabitModal } from './HabitModal';
+import { EventModal } from './EventModal';
 
 interface AgendaClientProps {
   initialTasks: Task[];
   lifeAreas: LifeArea[];
   initialHabits: Habit[];
   initialCompletions: HabitCompletion[];
+  initialEvents?: LifeAreaEvent[];
 }
 
 const AREA_COLOR_MAP = {
@@ -172,14 +174,17 @@ const getHabitStatusLabel = (habit: Habit, completed: boolean) => {
   return completed ? '✓ Feito hoje' : '○ Pendente hoje';
 };
 
-export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCompletions }: AgendaClientProps) {
+export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCompletions, initialEvents }: AgendaClientProps) {
   const [localTasks, setLocalTasks] = useState<Task[]>(initialTasks);
   const [localHabits, setLocalHabits] = useState<Habit[]>(initialHabits);
   const [localCompletions, setLocalCompletions] = useState<HabitCompletion[]>(initialCompletions);
+  const [localEvents, setLocalEvents] = useState<LifeAreaEvent[]>(initialEvents || []);
 
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [pendingHabitActionIds, setPendingHabitActionIds] = useState<Record<string, boolean>>({});
+  const [pendingEventActionIds, setPendingEventActionIds] = useState<Record<string, boolean>>({});
   const [isCreateHabitOpen, setIsCreateHabitOpen] = useState(false);
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   // Estados do mini-calendário
@@ -200,6 +205,71 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
   useEffect(() => {
     setLocalCompletions(initialCompletions);
   }, [initialCompletions]);
+
+  useEffect(() => {
+    setLocalEvents(initialEvents || []);
+  }, [initialEvents]);
+
+  // Handler para marcar/desmarcar conclusão de evento pontual com UI otimista
+  const handleToggleEvent = async (eventId: string) => {
+    if (pendingEventActionIds[eventId]) return;
+    setPendingEventActionIds(prev => ({ ...prev, [eventId]: true }));
+
+    const previousEvents = [...localEvents];
+
+    // Atualização otimista local
+    setLocalEvents(prev =>
+      prev.map(evt => {
+        if (evt.id === eventId) {
+          const isCompleted = evt.status === 'COMPLETED';
+          return {
+            ...evt,
+            status: isCompleted ? 'PENDING' : 'COMPLETED',
+            completed_at: isCompleted ? null : new Date().toISOString()
+          };
+        }
+        return evt;
+      })
+    );
+
+    try {
+      const res = await toggleEventCompletionAction(eventId);
+      if (!res.success) {
+        setLocalEvents(previousEvents);
+        alert(res.error || 'Erro ao atualizar evento.');
+      }
+    } catch {
+      setLocalEvents(previousEvents);
+      alert('Erro de conexão ao atualizar evento.');
+    } finally {
+      setPendingEventActionIds(prev => ({ ...prev, [eventId]: false }));
+    }
+  };
+
+  // Handler para arquivar evento pontual com UI otimista
+  const handleArchiveEvent = async (eventId: string) => {
+    if (pendingEventActionIds[eventId]) return;
+    if (!confirm('Deseja realmente arquivar este evento? Ele deixará de aparecer na sua agenda.')) return;
+
+    setPendingEventActionIds(prev => ({ ...prev, [eventId]: true }));
+    const previousEvents = [...localEvents];
+
+    // Atualização otimista local (remove da lista)
+    setLocalEvents(prev => prev.filter(evt => evt.id !== eventId));
+
+    try {
+      const res = await archiveEventAction(eventId);
+      if (!res.success) {
+        setLocalEvents(previousEvents);
+        alert(res.error || 'Erro ao arquivar evento.');
+      }
+    } catch {
+      setLocalEvents(previousEvents);
+      alert('Erro de conexão ao arquivar evento.');
+    } finally {
+      setPendingEventActionIds(prev => ({ ...prev, [eventId]: false }));
+    }
+  };
 
   // Mapeia áreas por ID
   const areasMap = useMemo(() => {
@@ -339,6 +409,32 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
       }
     });
   }, [localHabits]);
+
+  // Filtra os eventos pontuais de hoje
+  const todaysEvents = useMemo(() => {
+    const todayStr = getTodayDateOnly();
+    return localEvents
+      .filter(e => e.event_date === todayStr && e.status !== 'ARCHIVED' && e.deleted_at === null)
+      .sort((a, b) => {
+        if (!a.event_time) return 1;
+        if (!b.event_time) return -1;
+        return a.event_time.localeCompare(b.event_time);
+      });
+  }, [localEvents]);
+
+  // Filtra os eventos pontuais futuros (próximos)
+  const upcomingEvents = useMemo(() => {
+    const todayStr = getTodayDateOnly();
+    return localEvents
+      .filter(e => e.event_date > todayStr && e.status !== 'ARCHIVED' && e.deleted_at === null)
+      .sort((a, b) => {
+        const dateCompare = a.event_date.localeCompare(b.event_date);
+        if (dateCompare !== 0) return dateCompare;
+        if (!a.event_time) return 1;
+        if (!b.event_time) return -1;
+        return a.event_time.localeCompare(b.event_time);
+      });
+  }, [localEvents]);
 
   // Classifica tarefas ativas
   const categorizedTasks = useMemo(() => {
@@ -494,15 +590,26 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                 {formattedTodayHeader()}
               </h2>
             </div>
-            <button
-              onClick={() => setIsCreateHabitOpen(true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              <span>Nova Rotina</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCreateEventOpen(true)}
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer border border-zinc-200 dark:border-zinc-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span>+ Novo Evento</span>
+              </button>
+              <button
+                onClick={() => setIsCreateHabitOpen(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span>Nova Rotina</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -654,6 +761,38 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                     </div>
                   );
                 })
+              )}
+            </div>
+          </div>
+
+          {/* Seção: Eventos de Hoje */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-amber-600 dark:text-amber-450 tracking-wider flex items-center gap-1.5">
+              📅 Eventos de Hoje ({todaysEvents.length})
+            </h3>
+            <div className="space-y-3">
+              {todaysEvents.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhum evento agendado para hoje.
+                </div>
+              ) : (
+                todaysEvents.map(event => renderEventItem(event))
+              )}
+            </div>
+          </div>
+
+          {/* Seção: Próximos Eventos */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-blue-600 dark:text-blue-455 tracking-wider flex items-center gap-1.5">
+              📅 Próximos Eventos ({upcomingEvents.length})
+            </h3>
+            <div className="space-y-3">
+              {upcomingEvents.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhum evento futuro agendado.
+                </div>
+              ) : (
+                upcomingEvents.map(event => renderEventItem(event))
               )}
             </div>
           </div>
@@ -939,6 +1078,13 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
           onClose={() => setEditingHabit(null)}
         />
       )}
+
+      {isCreateEventOpen && (
+        <EventModal
+          lifeAreas={lifeAreas}
+          onClose={() => setIsCreateEventOpen(false)}
+        />
+      )}
     </div>
   );
 
@@ -1020,6 +1166,105 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
             </svg>
           </Link>
         )}
+      </div>
+    );
+  }
+
+  // Renderização individual de cada evento pontual
+  function renderEventItem(event: LifeAreaEvent) {
+    const isDone = event.status === 'COMPLETED';
+    const area = areasMap.get(event.life_area_id);
+    const areaColorInfo = area ? AREA_COLOR_MAP[area.color] : AREA_COLOR_MAP.slate;
+    const isActionPending = !!pendingEventActionIds[event.id];
+
+    return (
+      <div
+        key={event.id}
+        className={`bg-white/80 dark:bg-zinc-900/80 border rounded-2xl p-4 flex gap-4 items-center justify-between shadow-sm transition-all hover:border-emerald-500/20 group relative overflow-hidden ${
+          isDone ? 'border-zinc-200/40 dark:border-zinc-850/40 opacity-70' : 'border-zinc-200/60 dark:border-zinc-800/80'
+        }`}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Checkbox de Conclusão Otimista */}
+          <button
+            onClick={() => handleToggleEvent(event.id)}
+            disabled={isActionPending}
+            aria-label={`Concluir evento: ${event.title}`}
+            className={`w-5 h-5 rounded-lg border flex items-center justify-center cursor-pointer transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDone
+                ? 'border-emerald-500 bg-emerald-500 text-white'
+                : 'border-zinc-300 dark:border-zinc-700 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20'
+            }`}
+          >
+            {isActionPending ? (
+              <svg className="animate-spin h-3.5 w-3.5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : isDone ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-3.5 h-3.5 text-white animate-scale-up">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+            ) : (
+              <span className="w-2.5 h-2.5 rounded bg-emerald-500 scale-0 group-hover:scale-100 transition-transform" />
+            )}
+          </button>
+
+          {/* Dados do Evento */}
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className={`text-sm font-bold truncate flex-1 min-w-[120px] ${
+                isDone ? 'line-through text-zinc-450 dark:text-zinc-550' : 'text-zinc-800 dark:text-zinc-200'
+              }`}>
+                {event.title}
+              </h4>
+              {event.event_time && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/10 text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 flex items-center gap-1">
+                  <span>⏰</span> {event.event_time.substring(0, 5)}
+                </span>
+              )}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-zinc-200/40 text-zinc-500 dark:text-zinc-450 bg-zinc-100/50 dark:bg-zinc-850/40">
+                📅 {formatDateOnlyBr(event.event_date)}
+              </span>
+            </div>
+
+            {event.description && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                {event.description}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {area && (
+                <Link
+                  href={`/garden/${area.id}`}
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 transition-all ${areaColorInfo.bg}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${areaColorInfo.dot}`} />
+                  {area.name}
+                </Link>
+              )}
+              <span className={`text-[9px] font-bold ${isDone ? 'text-emerald-600 dark:text-emerald-450' : 'text-zinc-400 dark:text-zinc-550'}`}>
+                {isDone ? '✓ Concluído' : '○ Pendente'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Ações da Agenda */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => handleArchiveEvent(event.id)}
+            disabled={isActionPending}
+            title="Arquivar evento"
+            aria-label={`Arquivar evento: ${event.title}`}
+            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-950/20 rounded-xl transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+            </svg>
+          </button>
+        </div>
       </div>
     );
   }

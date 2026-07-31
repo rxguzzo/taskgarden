@@ -2,7 +2,7 @@ import React from 'react';
 import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
 import { AgendaClient } from '../../../components/calendar/AgendaClient';
-import { Task, LifeArea, Habit, HabitCompletion } from '../../../domain/growth/types';
+import { Task, LifeArea, Habit, HabitCompletion, LifeAreaEvent } from '../../../domain/growth/types';
 import { getTodayDateOnly, getIsoWeekKey } from '../../../utils/date';
 
 export const revalidate = 0;
@@ -68,16 +68,29 @@ export default async function CalendarPage() {
     console.error('Erro ao buscar conclusões de rotinas para a agenda:', completionsError);
   }
 
+  // 5. Buscar eventos pontuais ativos do usuário
+  const { data: events, error: eventsError } = await supabase
+    .from('life_area_events')
+    .select('*')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('event_date', { ascending: true });
+
+  if (eventsError) {
+    console.error('Erro ao buscar eventos para a agenda:', eventsError);
+  }
+
   const safeAreas: LifeArea[] = lifeAreas || [];
   const safeTasks: Task[] = activeTasks || [];
   const safeHabits: Habit[] = habits || [];
   const safeCompletions: HabitCompletion[] = completions || [];
+  const safeEvents: LifeAreaEvent[] = events || [];
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div>
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">Agenda Global</h1>
-        <p className="text-zinc-655 dark:text-zinc-400 mt-1">
+        <p className="text-zinc-650 dark:text-zinc-400 mt-1">
           Gerencie seus prazos e visualize todo o seu plano de cultivo de sementes.
         </p>
       </div>
@@ -86,6 +99,7 @@ export default async function CalendarPage() {
         lifeAreas={safeAreas}
         initialHabits={safeHabits}
         initialCompletions={safeCompletions}
+        initialEvents={safeEvents}
       />
     </div>
   );

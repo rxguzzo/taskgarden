@@ -374,3 +374,200 @@ export async function updateHabitAction(
     return { success: false, error: 'Ocorreu um erro inesperado ao atualizar a rotina.' };
   }
 }
+
+/**
+ * Cria um novo Evento Pontual no banco vinculado a uma Área da Vida.
+ */
+export async function createEventAction(
+  _previousState: ActionState | null,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const title = formData.get('title')?.toString().trim();
+    const description = formData.get('description')?.toString().trim() || null;
+    const lifeAreaId = formData.get('life_area_id')?.toString();
+    const eventDate = formData.get('event_date')?.toString().trim();
+    const eventTimeInput = formData.get('event_time')?.toString().trim() || null;
+
+    // 1. Validações básicas
+    if (!title || title.length < 1 || title.length > 255) {
+      return { success: false, error: 'O título deve ter entre 1 e 255 caracteres.' };
+    }
+
+    if (description && description.length > 1000) {
+      return { success: false, error: 'A descrição deve ter no máximo 1000 caracteres.' };
+    }
+
+    if (!lifeAreaId) {
+      return { success: false, error: 'A área da vida é obrigatória.' };
+    }
+
+    if (!eventDate || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+      return { success: false, error: 'A data do evento é obrigatória e deve estar no formato AAAA-MM-DD.' };
+    }
+
+    let cleanTime: string | null = null;
+    if (eventTimeInput) {
+      if (!/^\d{2}:\d{2}$/.test(eventTimeInput)) {
+        return { success: false, error: 'O horário do evento deve estar no formato HH:MM.' };
+      }
+      cleanTime = eventTimeInput;
+    }
+
+    // 2. Autenticação do Usuário
+    const supabase = await getServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Sessão expirada. Por favor, faça login novamente.' };
+    }
+
+    // 3. Validar se a Área da Vida pertence ao usuário
+    const { data: area, error: areaError } = await supabase
+      .from('life_areas')
+      .select('id')
+      .eq('id', lifeAreaId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (areaError || !area) {
+      return { success: false, error: 'Área da vida inválida ou sem permissão.' };
+    }
+
+    // 4. Gravar Evento
+    const { error: insertError } = await supabase
+      .from('life_area_events')
+      .insert({
+        user_id: user.id,
+        life_area_id: lifeAreaId,
+        title,
+        description,
+        event_date: eventDate,
+        event_time: cleanTime,
+        status: 'PENDING'
+      });
+
+    if (insertError) {
+      console.error('Erro ao inserir evento:', insertError);
+      return { success: false, error: 'Erro ao salvar o evento no banco de dados.' };
+    }
+
+    revalidatePath('/calendar');
+    revalidatePath('/garden');
+    revalidatePath(`/garden/${lifeAreaId}`);
+
+    return { success: true, message: 'Evento criado com sucesso!' };
+  } catch (err) {
+    console.error('Exceção no createEventAction:', err);
+    return { success: false, error: 'Ocorreu um erro inesperado ao salvar o evento.' };
+  }
+}
+
+/**
+ * Alterna (marca/desmarca) a conclusão de um evento.
+ */
+export async function toggleEventCompletionAction(eventId: string): Promise<ActionState> {
+  try {
+    const supabase = await getServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Sessão expirada. Por favor, faça login novamente.' };
+    }
+
+    // 1. Validar posse do evento
+    const { data: event, error: selectError } = await supabase
+      .from('life_area_events')
+      .select('id, life_area_id, status')
+      .eq('id', eventId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (selectError || !event) {
+      return { success: false, error: 'Evento não encontrado ou sem permissão.' };
+    }
+
+    const isCompleted = event.status === 'COMPLETED';
+    const nextStatus = isCompleted ? 'PENDING' : 'COMPLETED';
+    const nextCompletedAt = isCompleted ? null : new Date().toISOString();
+
+    // 2. Atualizar evento
+    const { error: updateError } = await supabase
+      .from('life_area_events')
+      .update({
+        status: nextStatus,
+        completed_at: nextCompletedAt,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', eventId)
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      console.error('Erro ao alternar evento:', updateError);
+      return { success: false, error: 'Erro ao atualizar a conclusão do evento.' };
+    }
+
+    revalidatePath('/calendar');
+    revalidatePath('/garden');
+    revalidatePath(`/garden/${event.life_area_id}`);
+
+    return { success: true };
+  } catch (err) {
+    console.error('Exceção no toggleEventCompletionAction:', err);
+    return { success: false, error: 'Ocorreu um erro inesperado ao alternar o evento.' };
+  }
+}
+
+/**
+ * Realiza o arquivamento (soft-delete) de um evento.
+ */
+export async function archiveEventAction(eventId: string): Promise<ActionState> {
+  try {
+    const supabase = await getServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: 'Sessão expirada. Por favor, faça login novamente.' };
+    }
+
+    // 1. Obter detalhes do evento para revalidação de rota correta
+    const { data: event, error: selectError } = await supabase
+      .from('life_area_events')
+      .select('id, life_area_id')
+      .eq('id', eventId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (selectError || !event) {
+      return { success: false, error: 'Evento não encontrado ou sem permissão.' };
+    }
+
+    // 2. Marcar status e deleted_at
+    const { error: updateError } = await supabase
+      .from('life_area_events')
+      .update({
+        status: 'ARCHIVED',
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', eventId)
+      .eq('user_id', user.id);
+
+    if (updateError) {
+      console.error('Erro ao arquivar evento:', updateError);
+      return { success: false, error: 'Erro ao arquivar o evento.' };
+    }
+
+    revalidatePath('/calendar');
+    revalidatePath('/garden');
+    revalidatePath(`/garden/${event.life_area_id}`);
+
+    return { success: true, message: 'Evento arquivado com sucesso!' };
+  } catch (err) {
+    console.error('Exceção no archiveEventAction:', err);
+    return { success: false, error: 'Ocorreu um erro inesperado ao arquivar o evento.' };
+  }
+}
