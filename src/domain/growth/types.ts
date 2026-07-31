@@ -140,3 +140,20 @@ export interface HabitCompletion {
   period_key: string;
   created_at: string;
 }
+
+export type LifeAreaEventStatus = 'PENDING' | 'COMPLETED' | 'ARCHIVED';
+
+export interface LifeAreaEvent {
+  id: string;
+  user_id: string;
+  life_area_id: string;
+  title: string;
+  description: string | null;
+  event_date: string; // YYYY-MM-DD
+  event_time: string | null; // HH:MM:SS ou HH:MM
+  status: LifeAreaEventStatus;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}

@@ -7,6 +7,7 @@ import { formatFriendlyDate, getTodayDateOnly, getIsoWeekKey } from '../../../..
 import { AreaHeaderActions } from '../../../../components/garden/AreaHeaderActions';
 import { AreaTasksList } from '../../../../components/garden/AreaTasksList';
 import { AreaRoutinesList } from '../../../../components/garden/AreaRoutinesList';
+import { AreaEventsList } from '../../../../components/garden/AreaEventsList';
 import { BackButton } from '../../../../components/garden/BackButton';
 import { 
   getStageLabel, 
@@ -146,6 +147,20 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     console.error('Erro ao buscar todas as conclusões das rotinas:', allCompletionsError);
   }
 
+  // Buscar eventos pontuais ativos vinculados a esta área
+  const { data: areaEvents, error: eventsError } = await supabase
+    .from('life_area_events')
+    .select('*')
+    .eq('life_area_id', area.id)
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .order('event_date', { ascending: true });
+
+  if (eventsError) {
+    console.error('Erro ao buscar eventos da área:', eventsError);
+  }
+
+  const safeEvents = areaEvents || [];
 
   // Deriva dados dinamicamente usando as regras de crescimento reais
   const completedTasksCount = areaTasks.filter((t) => t.status === 'COMPLETED').length;
@@ -156,6 +171,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     areaHabits.some((h) => h.id === c.habit_id)
   );
   const habitCompletionsCount = areaCompletions.length;
+  const completedEventsCount = safeEvents.filter(e => e.status === 'COMPLETED').length;
 
   // M3: Esforço real por work_sessions.duration_minutes
   const totalMinutes = areaSessions.reduce((sum, s) => sum + s.duration_minutes, 0);
@@ -165,7 +181,8 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     completedTasksCount,
     completedSubtasksCount,
     totalMinutes,
-    habitCompletionsCount
+    habitCompletionsCount,
+    completedEventsCount
   );
 
   const stage = calculatePlantStage(xp);
@@ -177,7 +194,8 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
     areaTasks,
     subtasks || [],
     areaSessions,
-    areaCompletions
+    areaCompletions,
+    safeEvents
   );
 
   const healthStatus = calculateHealthStatus(sat);
@@ -306,6 +324,8 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
           <AreaTasksList tasks={areaTasks} sessions={areaSessions} area={area} />
 
           <AreaRoutinesList habits={habits || []} completions={completions || []} lifeAreas={lifeAreas || []} />
+
+          <AreaEventsList events={safeEvents} lifeAreaId={area.id} />
         </div>
       </div>
     </div>
