@@ -645,6 +645,38 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Colunas de Conteúdo (3/4 do espaço no desktop) */}
         <div className="lg:col-span-3 space-y-6">
+          {/* Seção: Hoje */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-amber-605 dark:text-amber-450 tracking-wider flex items-center gap-1.5">
+              🌱 Para Hoje ({categorizedTasks.todayTasks.length})
+            </h3>
+            <div className="space-y-3">
+              {categorizedTasks.todayTasks.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhuma semente para hoje.
+                </div>
+              ) : (
+                categorizedTasks.todayTasks.map(task => renderTaskItem(task))
+              )}
+            </div>
+          </div>
+
+          {/* Seção: Eventos de Hoje */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-amber-600 dark:text-amber-450 tracking-wider flex items-center gap-1.5">
+              📅 Eventos de Hoje ({todaysEvents.length})
+            </h3>
+            <div className="space-y-3">
+              {todaysEvents.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhum evento agendado para hoje.
+                </div>
+              ) : (
+                todaysEvents.map(event => renderEventItem(event))
+              )}
+            </div>
+          </div>
+
           {/* Seção: Rotinas de Hoje */}
           <div className="space-y-3">
             <h3 className="text-sm uppercase font-bold text-emerald-600 dark:text-emerald-450 tracking-wider flex items-center gap-1.5">
@@ -765,38 +797,6 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
             </div>
           </div>
 
-          {/* Seção: Eventos de Hoje */}
-          <div className="space-y-3">
-            <h3 className="text-sm uppercase font-bold text-amber-600 dark:text-amber-450 tracking-wider flex items-center gap-1.5">
-              📅 Eventos de Hoje ({todaysEvents.length})
-            </h3>
-            <div className="space-y-3">
-              {todaysEvents.length === 0 ? (
-                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
-                  Nenhum evento agendado para hoje.
-                </div>
-              ) : (
-                todaysEvents.map(event => renderEventItem(event))
-              )}
-            </div>
-          </div>
-
-          {/* Seção: Próximos Eventos */}
-          <div className="space-y-3">
-            <h3 className="text-sm uppercase font-bold text-blue-600 dark:text-blue-455 tracking-wider flex items-center gap-1.5">
-              📅 Próximos Eventos ({upcomingEvents.length})
-            </h3>
-            <div className="space-y-3">
-              {upcomingEvents.length === 0 ? (
-                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
-                  Nenhum evento futuro agendado.
-                </div>
-              ) : (
-                upcomingEvents.map(event => renderEventItem(event))
-              )}
-            </div>
-          </div>
-
           {/* Seção: Atrasadas */}
           <div className="space-y-3">
             <h3 className="text-sm uppercase font-bold text-red-600 dark:text-red-400 tracking-wider flex items-center gap-1.5">
@@ -813,22 +813,6 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
             </div>
           </div>
 
-          {/* Seção: Hoje */}
-          <div className="space-y-3">
-            <h3 className="text-sm uppercase font-bold text-amber-600 dark:text-amber-450 tracking-wider flex items-center gap-1.5">
-              🌱 Para Hoje ({categorizedTasks.todayTasks.length})
-            </h3>
-            <div className="space-y-3">
-              {categorizedTasks.todayTasks.length === 0 ? (
-                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
-                  Nenhuma semente para hoje.
-                </div>
-              ) : (
-                categorizedTasks.todayTasks.map(task => renderTaskItem(task))
-              )}
-            </div>
-          </div>
-
           {/* Seção: Próximas */}
           <div className="space-y-3">
             <h3 className="text-sm uppercase font-bold text-emerald-600 dark:text-emerald-450 tracking-wider flex items-center gap-1.5">
@@ -841,6 +825,22 @@ export function AgendaClient({ initialTasks, lifeAreas, initialHabits, initialCo
                 </div>
               ) : (
                 categorizedTasks.upcoming.map(task => renderTaskItem(task))
+              )}
+            </div>
+          </div>
+
+          {/* Seção: Próximos Eventos */}
+          <div className="space-y-3">
+            <h3 className="text-sm uppercase font-bold text-blue-600 dark:text-blue-455 tracking-wider flex items-center gap-1.5">
+              📅 Próximos Eventos ({upcomingEvents.length})
+            </h3>
+            <div className="space-y-3">
+              {upcomingEvents.length === 0 ? (
+                <div className="text-xs text-zinc-400 dark:text-zinc-550 py-4 px-4 bg-zinc-50/50 dark:bg-zinc-950/10 border border-dashed border-zinc-200/50 dark:border-zinc-800/40 rounded-2xl text-center font-medium">
+                  Nenhum evento futuro agendado.
+                </div>
+              ) : (
+                upcomingEvents.map(event => renderEventItem(event))
               )}
             </div>
           </div>
