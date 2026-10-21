@@ -1,6 +1,7 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { getServerClient } from '../../../services/supabase/server';
+import { getUserTimezone } from '../../../services/supabase/timezone';
 import { AgendaClient } from '../../../components/calendar/AgendaClient';
 import { Task, LifeArea, Habit, HabitCompletion, LifeAreaEvent } from '../../../domain/growth/types';
 import { getTodayDateOnly, getIsoWeekKey } from '../../../utils/date';
@@ -15,7 +16,7 @@ export default async function CalendarPage() {
     redirect('/login');
   }
 
-  const todayStr = getTodayDateOnly();
+  const todayStr = getTodayDateOnly(await getUserTimezone(supabase, user.id));
 
   // 1. Buscar Áreas da Vida ativas do usuário logado
   const { data: lifeAreas, error: areasError } = await supabase

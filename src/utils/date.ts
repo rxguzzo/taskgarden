@@ -1,9 +1,30 @@
+export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
+
 /**
- * Obtém a data de hoje local do usuário no formato YYYY-MM-DD,
- * evitando discrepâncias causadas por fusos horários (como UTC).
+ * Obtém a data de "hoje" no formato YYYY-MM-DD.
+ *
+ * - Com `timeZone` (IANA, ex.: 'America/Sao_Paulo'): calcula o dia nesse fuso.
+ *   Use SEMPRE no servidor, que na Vercel roda em UTC — sem isso, depois das
+ *   21h no Brasil o servidor já estaria no dia seguinte.
+ * - Sem `timeZone`: usa o fuso do ambiente (no navegador, o fuso do usuário).
  */
-export function getTodayDateOnly(): string {
+export function getTodayDateOnly(timeZone?: string): string {
   const now = new Date();
+
+  if (timeZone) {
+    try {
+      // 'en-CA' formata como YYYY-MM-DD
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(now);
+    } catch {
+      // Fuso inválido: cai no cálculo local abaixo
+    }
+  }
+
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');

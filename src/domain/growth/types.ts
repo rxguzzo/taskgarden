@@ -91,29 +91,6 @@ export interface Subtask {
   deleted_at: string | null;
 }
 
-export interface DemoLifeArea {
-  id: string;
-  name: string;
-  description: string;
-  stage: PlantStage;
-  visualSize: PlantVisualSize;
-  totalMinutes: number;
-  healthStatus: 'HEALTHY' | 'THIRSTY' | 'IDLE' | 'OVERLOADED';
-  lastActivityAt: string;
-}
-
-export interface DemoAreaTask {
-  id: string;
-  lifeAreaId: string;
-  title: string;
-  status: 'ACTIVE' | 'COMPLETED' | 'PRUNED';
-  progress: number;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'VERY_HARD';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  dueDate?: string;
-  pruneReason?: string;
-}
-
 export type HabitFrequency = 'DAILY' | 'WEEKDAYS' | 'CUSTOM_WEEKLY' | 'WEEKLY' | 'MONTHLY';
 
 export interface Habit {

@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { getServerClient } from '../../../../services/supabase/server';
+import { getUserTimezone } from '../../../../services/supabase/timezone';
 import { Card } from '../../../../components/ui/Card';
 import { PlantVisual } from '../../../../components/plants/PlantVisual';
 import { formatFriendlyDate, getTodayDateOnly, getIsoWeekKey } from '../../../../utils/date';
@@ -123,7 +124,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   }
 
   // Buscar as conclusões para os períodos correntes
-  const todayStr = getTodayDateOnly();
+  const todayStr = getTodayDateOnly(await getUserTimezone(supabase, user.id));
   const currentWeekKey = getIsoWeekKey(todayStr);
   const currentMonthKey = todayStr.substring(0, 7);
 

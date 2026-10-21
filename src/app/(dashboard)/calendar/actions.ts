@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getServerClient } from '../../../services/supabase/server';
+import { getUserTimezone } from '../../../services/supabase/timezone';
 import { ActionState } from '../tasks/actions';
 import { HabitFrequency } from '../../../domain/growth/types';
 import { getTodayDateOnly, getIsoWeekKey } from '../../../utils/date';
@@ -130,8 +131,6 @@ export async function toggleHabitCompletionAction(
   habitId: string
 ): Promise<ActionState> {
   try {
-    const dateStr = getTodayDateOnly();
-
     // 1. Autenticação do Usuário
     const supabase = await getServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -139,6 +138,9 @@ export async function toggleHabitCompletionAction(
     if (userError || !user) {
       return { success: false, error: 'Sessão expirada. Por favor, faça login novamente.' };
     }
+
+    // "Hoje" no fuso do usuário (o servidor roda em UTC)
+    const dateStr = getTodayDateOnly(await getUserTimezone(supabase, user.id));
 
     // 2. Validar se o Hábito pertence ao usuário e não está deletado
     const { data: habit, error: habitError } = await supabase

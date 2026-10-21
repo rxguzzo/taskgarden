@@ -2,7 +2,7 @@
 
 O **TaskGarden** é uma aplicação web de gestão de tarefas com uma interface gamificada baseada no crescimento de plantas.
 
-🔗 **Link de Produção:** [https://taskgarden-rxguzzo.vercel.app](https://taskgarden-rxguzzo.vercel.app) *(substitua pela sua URL final da Vercel)*
+🔗 **Produção:** [https://taskgarden-rho.vercel.app](https://taskgarden-rho.vercel.app)
 
 ---
 
@@ -19,6 +19,12 @@ O projeto foi dividido em módulos estruturados e incrementais de desenvolviment
 | **M5 — Subtarefas & Progresso** | Subtarefas com controle individual, progresso calculado automaticamente de 0% a 100%. | Concluído ✅ |
 | **M6 — Polish, UX & A11y** | Estados vazios inteligentes, feedback de loading, acessibilidade (aria-labels) e portfólio. | Concluído ✅ |
 | **M7 — Deploy & Produção** | Deploy na Vercel, variáveis de ambiente de produção e configuração Supabase Auth redirects. | Concluído ✅ |
+| **M9 — Pendências globais** | Visão unificada das pendências de todas as áreas. | Concluído ✅ |
+| **M10 — Agenda global** | Agenda com tarefas, rotinas e eventos de todas as áreas. | Concluído ✅ |
+| **M10.2–10.4 — Rotinas e eventos** | Rotinas recorrentes (diária, dias úteis, semanal, mensal), conclusão por período, edição e eventos pontuais. | Concluído ✅ |
+| **M11 — Crescimento visual** | Estágios e tamanho da árvore conforme o esforço acumulado. | Concluído ✅ |
+| **M12 — Branding & login** | Identidade visual e telas de autenticação. | Concluído ✅ |
+| **M13 — PWA** | Manifesto e ícones para instalar o app no celular. | Concluído ✅ |
 
 ---
 
@@ -38,10 +44,10 @@ Neste projeto, a gamificação é orientada pela seguinte estrutura conceitual:
 - Node.js instalado (v18+)
 - Gerenciador de pacotes `npm`
 
-### 1. Clonar ou Acessar a Raiz do Projeto
-Acesse o diretório do projeto no terminal:
+### 1. Clonar o projeto
 ```bash
-cd C:\Projetos\taskgarden
+git clone https://github.com/rxguzzo/taskgarden.git
+cd taskgarden
 ```
 
 ### 2. Instalar as Dependências
@@ -50,18 +56,24 @@ Instale os pacotes necessários rodando:
 npm install
 ```
 
-### 3. Configurar as Variáveis de Ambiente (Supabase Cloud)
-Por padrão, o projeto inicia em **Modo de Leitura** com **dados demonstrativos mockados** sem necessidade de chaves. O banco de dados Supabase Cloud ainda não está conectado nesta etapa de desenvolvimento.
+### 3. Configurar as variáveis de ambiente (Supabase)
+O app precisa de um projeto Supabase para rodar (autenticação e banco).
 
-Caso deseje preparar a conexão do seu banco de dados definitivo futuramente:
-1. Crie um arquivo chamado `.env.local` na raiz do projeto (`C:\Projetos\taskgarden\.env.local`).
-2. Copie o conteúdo de `.env.example` e preencha com as suas chaves do projeto Supabase Cloud:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto-id.supabase.co
-   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-anonima-publica
+1. Copie o arquivo de exemplo:
+   ```bash
+   cp .env.example .env.local
    ```
+2. Preencha com os dados do seu projeto Supabase (Project Settings → API):
 
-*Nota: Se o arquivo `.env.local` estiver ausente ou vazio, a aplicação continuará em modo de demonstração local e não tentará realizar conexões com a API.*
+| Variável | Para quê |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Chave pública (anon/publishable) — segura no navegador porque o RLS protege os dados |
+| `NEXT_PUBLIC_SITE_URL` | URL do app (`http://localhost:3000` em desenvolvimento) |
+
+3. Aplique as migrations do banco (seção abaixo) e rode `npm run dev`.
+
+> Sem as variáveis, o app avisa o erro ao iniciar: não existe modo de demonstração sem banco.
 
 ---
 
@@ -171,10 +183,10 @@ Ao importar o repositório `rxguzzo/taskgarden` no painel da Vercel, configure a
 
 ### 2. Configurações de URL no Supabase Auth
 No painel do Supabase, vá em **Authentication** $\rightarrow$ **URL Configuration** e configure:
-* **Site URL**: `https://sua-url-final.vercel.app` (o domínio de produção atribuído pela Vercel)
+* **Site URL**: `https://taskgarden-rho.vercel.app` (o domínio de produção atribuído pela Vercel)
 * **Redirect URLs** (Adicione as seguintes URLs autorizadas na lista):
-  * `https://sua-url-final.vercel.app/auth/callback`
-  * `https://sua-url-final.vercel.app/redefinir-senha`
+  * `https://taskgarden-rho.vercel.app/auth/callback`
+  * `https://taskgarden-rho.vercel.app/redefinir-senha`
   * `http://localhost:3000/auth/callback` *(preserva suporte ao desenvolvimento local)*
   * `http://localhost:3000/redefinir-senha` *(preserva suporte ao desenvolvimento local)*
 
@@ -235,7 +247,6 @@ src/
 │   └── growth/               # Lógica pura de crescimento e mapeamento de estágios
 │       ├── rules.ts          # Funções puras (Progresso -> Estágio -> Tamanho)
 │       └── types.ts          # Tipos (DemoLifeArea, DemoAreaTask)
-├── mocks/                    # Dados para demonstração visual
 │   ├── demo-life-areas.ts    # Lista estática de áreas da vida (Igreja, Trabalho, etc.)
 │   └── demo-area-tasks.ts    # Lista estática de tarefas vinculadas às áreas
 ├── services/                 # Serviços de Integração Externa
